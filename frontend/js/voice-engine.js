@@ -62,6 +62,8 @@ const VoiceEngine = (() => {
     updatedAt: 0
   };
 
+  let onlineMode = true;
+
   // ========== VOCABULARY ==========
   const COMMANDS = {
     add: {
@@ -1088,20 +1090,46 @@ const VoiceEngine = (() => {
 
     recognition.onerror = (event) => {
       const err = event && event.error ? event.error : '';
+      
+      // Check network status
+      if (!navigator.onLine) {
+        emitState('unsupported');
+        emitTranscript('You are currently offline. Voice features require an internet connection.', false);
+        return;
+      }
+
       if (err === 'no-speech') {
         emitState('listening');
         emitTranscript(normalizeTranscriptText(liveTranscript), true);
         return;
       }
 
-      if (['not-allowed', 'service-not-allowed', 'audio-capture'].includes(err)) {
-        recognitionShouldRun = false;
-        recognitionIsRunning = false;
-        isListening = false;
-        emitState('error-permission');
-        emitTranscript('Microphone permission denied or unavailable. Allow microphone access and try again.', false);
+      if (['not-allowed', 'service-not-allowed', 'audio-capture', 'network'].includes(err)) {
+        if (err === 'not-allowed') {
+          recognitionShouldRun = false;
+          recognitionIsRunning = false;
+          isListening = false;
+          emitState('error-permission');
+          emitTranscript('Microphone access denied. Please enable it in your browser settings.', false);
+        } else if (err === 'network') {
+          console.error("STT Network error");
+          emitTranscript('Network error during recognition. Please check your connection.', false);
+        } else {
+          // Graceful fallback for language/service issues
+          console.warn("STT Service error:", err);
+          
+          if (currentLang !== 'en-IN') {
+            emitTranscript(`Recognition issue with ${currentLang === 'te-IN' ? 'Telugu' : 'Hindi'}. Falling back to English.`, false);
+            currentLang = 'en-IN';
+            setTimeout(restartRecognition, 500);
+          } else {
+            emitTranscript('Speech service currently unavailable. Try again later.', false);
+            emitState('unsupported');
+          }
+        }
         return;
       }
+
 
       if (err === 'aborted' && !recognitionShouldRun) return;
 
@@ -1238,29 +1266,20 @@ const VoiceEngine = (() => {
     return en;
   }
 
-  function processTranscript(text) {
-    const cmd = parseCommand(text);
-    commandHistory.push({ text, command: cmd, time: new Date().toISOString() });
+  async function processTranscript(text) {
+    let cmd = parseCommand(text);
 
+    // If it's an important command like activate/stop, handle immediately
     if (cmd.action === 'activate') {
       isActivated = true;
       emitState('activated');
-      speak(getLangText(
-        'నమస్కారం! చెప్పండి, ఏం కావాలి?',
-        'Hello! I am listening. What do you need?',
-        'नमस्ते! बताइए, क्या चाहिए?'
-      ));
+      speak(getLangText('నమస్కారం! చెప్పండి, ఏం కావాలి?', 'Hello! I am listening. What do you need?', 'नमस्ते! बताइए, क्या चाहिए?'));
       emitCommand(cmd, null);
       return;
     }
-
     if (cmd.action === 'stop') {
       isActivated = false;
-      speak(getLangText(
-        'సరే, అవసరం అయితే మళ్ళీ పిలవండి!',
-        'Okay, call me when needed.',
-        'ठीक है, ज़रूरत हो तो बुलाना।'
-      ));
+      speak(getLangText('సరే, అవసరం అయితే మళ్ళీ పిలవండి!', 'Okay, call me when needed.', 'ठीक है, ज़रूरत हो तो बुलाना।'));
       void stopBrowserSpeechListening(true);
       emitCommand(cmd, null);
       return;
@@ -1274,7 +1293,29 @@ const VoiceEngine = (() => {
 
     emitState('processing');
 
+    // If online, use AI to refine the command parsing for complex inputs
+    if (onlineMode && cmd.action === 'unknown') {
+      try {
+        const aiPayload = {
+          model: "sarvam-m",
+          messages: [
+            { role: "system", content: "Extract intent from the user text for a Kirana billing app. Possible actions: add (item, qty, price), remove (item), total, bill, discount (value, type), navigate (screen). Return JSON only." },
+            { role: "user", content: text }
+          ]
+        };
+        const aiRes = await window.apiCall('/api/sarvam/chat', 'POST', aiPayload);
+        const aiMessage = aiRes.data.choices[0].message.content;
+        const aiCmd = JSON.parse(aiMessage.match(/\{.*\}/s)[0]);
+        if (aiCmd && aiCmd.action !== 'unknown') {
+          cmd = aiCmd;
+        }
+      } catch (err) {
+        console.warn("AI NLU failed, using local parse", err);
+      }
+    }
+
     executeCommand(cmd);
+    commandHistory.push({ text, command: cmd, time: new Date().toISOString() });
   }
 
   function navigateTo(screen) {
@@ -1687,11 +1728,40 @@ const VoiceEngine = (() => {
   }
 
   // ========== SPEECH SYNTHESIS ==========
-  function speak(text) {
+  async function speak(text) {
     if (!synth || !text) return;
     synth.cancel();
-    isSynthSpeaking = true;
 
+    // Try Sarvam TTS if online
+    if (onlineMode) {
+      try {
+        const langMap = { 'te-IN': 'hi-IN', 'hi-IN': 'hi-IN', 'en-IN': 'en-IN' };
+        const targetLang = langMap[currentLang] || 'hi-IN';
+
+        const res = await fetch('http://127.0.0.1:5005/api/sarvam/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            inputs: [text],
+            target_language_code: targetLang,
+            speaker: "meera",
+            pitch: 0, pace: 1, loudness: 1.5, speech_sample_rate: 22050
+          })
+        });
+        const data = await res.json();
+        if (data.audios && data.audios[0]) {
+          const audio = new Audio('data:audio/wav;base64,' + data.audios[0]);
+          isSynthSpeaking = true;
+          audio.onended = () => { isSynthSpeaking = false; if (isListening) emitState('listening'); };
+          audio.play();
+          return;
+        }
+      } catch (err) {
+        console.warn("Sarvam TTS failed, falling back to browser synth", err);
+      }
+    }
+
+    isSynthSpeaking = true;
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = currentLang;
     utter.rate = 1.0;
@@ -1852,9 +1922,9 @@ const VoiceEngine = (() => {
     getDebugStats: () => ({ ...debugStats }),
     getHistory: () => commandHistory,
     on: (event, handler) => {
-      if (typeof handler !== 'function') return () => {};
+      if (typeof handler !== 'function') return () => { };
       const bucket = listeners[event];
-      if (!bucket) return () => {};
+      if (!bucket) return () => { };
       bucket.add(handler);
       return () => bucket.delete(handler);
     },

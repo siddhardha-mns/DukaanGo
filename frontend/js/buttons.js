@@ -401,14 +401,7 @@
   /* =========================================================
      SECTION: FAB (Floating Action Button)
   ========================================================= */
-  function initFAB() {
-    // FAB menu items that navigate to sections handled by existing onclick
-    // Ensure FAB closes on outside click
-    document.addEventListener('click', function (e) {
-      const fab = document.getElementById('fab');
-      if (fab && !fab.contains(e.target)) fab.classList.remove('open');
-    });
-  }
+
 
   /* =========================================================
      GLOBAL: Search bar

@@ -409,34 +409,8 @@ body {
 .toast-success i { color: var(--accent-green); }
 .toast-error i { color: var(--accent-red); }
 
-/* ========== FLOATING ACTION BUTTON ========== */
-.fab {
-  position: fixed; bottom: 28px; right: 28px; z-index: 200;
-}
-.fab-main {
-  width: 56px; height: 56px; border-radius: 50%;
-  background: var(--gradient-1); border: none;
-  color: #fff; font-size: 24px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--shadow-glow-blue), var(--shadow-md);
-  transition: var(--transition);
-}
-.fab-main:hover { transform: scale(1.08); }
-.fab-menu {
-  position: absolute; bottom: 68px; right: 0;
-  display: flex; flex-direction: column; gap: 8px;
-  opacity: 0; pointer-events: none; transition: var(--transition);
-  transform: translateY(10px);
-}
-.fab.open .fab-menu { opacity: 1; pointer-events: all; transform: translateY(0); }
-.fab-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 16px; background: var(--bg-secondary);
-  border: 1px solid var(--border-color); border-radius: var(--radius-md);
-  cursor: pointer; white-space: nowrap; font-size: 13px;
-  transition: var(--transition); color: var(--text-primary);
-}
-.fab-item:hover { background: var(--bg-glass-hover); border-color: var(--border-hover); }
+
+
 
 /* ========== CHART AREA ========== */
 .chart-container { position: relative; width: 100%; }

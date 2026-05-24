@@ -57,6 +57,47 @@ def init_db():
         )
     ''')
 
+    # Customers Table (for customer panel auth)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS customers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            name TEXT,
+            phone TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Customer Orders Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS customer_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL,
+            txn_id TEXT,
+            delivery_address TEXT,
+            payment_method TEXT DEFAULT 'COD',
+            status TEXT DEFAULT 'pending',
+            total REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (customer_id) REFERENCES customers(id),
+            FOREIGN KEY (txn_id) REFERENCES transactions(id)
+        )
+    ''')
+
+    # Customer Order Items Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS customer_order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            item_name TEXT,
+            qty INTEGER,
+            price REAL,
+            subtotal REAL,
+            FOREIGN KEY (order_id) REFERENCES customer_orders(id)
+        )
+    ''')
+
     # Insert default data if inventory is empty
     cursor.execute('SELECT COUNT(*) FROM inventory')
     if cursor.fetchone()[0] == 0:

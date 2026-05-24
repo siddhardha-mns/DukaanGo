@@ -511,35 +511,7 @@
   padding: 10px 20px;
 }
 
-/* ===== FLOATING VOICE BUTTON ===== */
-.voice-fab {
-  position: fixed;
-  bottom: 80px;  /* above bottom nav on mobile */
-  right: 20px;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  background: var(--gradient-1);
-  border: none;
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 20px rgba(79,125,248,0.4);
-  transition: var(--transition);
-  z-index: 150;
-}
-.voice-fab:hover { transform: scale(1.1); box-shadow: 0 6px 30px rgba(79,125,248,0.5); }
-.voice-fab.active {
-  background: var(--gradient-2);
-  animation: micPulse-fab 1.5s ease infinite;
-}
-@keyframes micPulse-fab {
-  0%, 100% { box-shadow: 0 4px 20px rgba(155,109,255,0.4); }
-  50% { box-shadow: 0 4px 40px rgba(155,109,255,0.7); }
-}
+
 
 /* ===== GLOBAL VOICE HUD ===== */
 .global-voice-hud {

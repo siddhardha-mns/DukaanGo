@@ -369,7 +369,7 @@
 
   /* ── Already logged in? ── */
   if (sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY)) {
-    window.location.replace('index.html');
+    window.location.replace('dashboard.html');
   }
 
   /* ── Backend health ── */
@@ -507,7 +507,7 @@
         if (remember) localStorage.setItem('lc_remembered_user', username);
         else localStorage.removeItem('lc_remembered_user');
         showAlert(`Welcome back, ${user.username}! Redirecting…`, 'success');
-        setTimeout(() => window.location.replace('index.html'), 900);
+        setTimeout(() => window.location.replace('dashboard.html'), 900);
       } else {
         showAlert(body.message || 'Invalid credentials. Please try again.');
         document.getElementById('loginPassword').value = '';
@@ -517,7 +517,7 @@
       if (username === 'admin' && password === 'admin123') {
         storeAuth('offline-demo-token', { id:1, username:'admin' }, remember);
         showAlert('Backend offline — continuing in local mode.', 'success');
-        setTimeout(() => window.location.replace('index.html'), 900);
+        setTimeout(() => window.location.replace('dashboard.html'), 900);
       } else {
         showAlert('Cannot reach server. Check backend is running on port 5005.');
       }
@@ -553,7 +553,7 @@
         const { token, user } = body.data;
         storeAuth(token, user, false);
         showAlert(`Account created! Welcome, ${user.username} 🎉`, 'success');
-        setTimeout(() => window.location.replace('index.html'), 1000);
+        setTimeout(() => window.location.replace('dashboard.html'), 1000);
       } else {
         showAlert(body.message || (status === 409 ? 'Username already taken.' : 'Registration failed.'));
       }

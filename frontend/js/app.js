@@ -64,11 +64,7 @@ function syncVoiceControls() {
     voiceState.textContent = enabled ? 'On' : 'Off';
     voiceState.className = `badge ${enabled ? 'badge-success' : 'badge-danger'}`;
   }
-  const voiceFab = document.getElementById('voiceFab');
-  if (voiceFab) {
-    voiceFab.style.opacity = enabled ? '1' : '0.55';
-    voiceFab.style.filter = enabled ? 'none' : 'grayscale(0.3)';
-  }
+
 }
 
 function toggleVoiceAssistant(toggleEl, silent = false) {
@@ -120,9 +116,7 @@ function switchSection(id, el) {
     document.getElementById('topbarTitle').textContent = t[0];
     document.querySelector('.topbar-breadcrumb').textContent = t[1];
   }
-  // Close FAB
-  const fab = document.getElementById('fab');
-  if (fab) fab.classList.remove('open');
+
   // Init charts if analytics
   if (id === 'analytics') setTimeout(initAnalyticsCharts, 100);
   // Init smart insights if navigating there
@@ -563,29 +557,13 @@ function updateGlobalVoiceHudText(text, isInterim = false) {
   textEl.classList.toggle('interim', !!isInterim);
 }
 
-// ========== FLOATING VOICE FAB ==========
-function handleVoiceFabClick() {
-  if (!isVoiceEnabled()) {
-    showToast('Voice assistant is turned off. Enable it in Settings.', 'error');
-    return;
-  }
 
-  const fab = document.getElementById('voiceFab');
-  showGlobalVoiceHud();
-
-  // Global mic only toggles listening; it should never navigate screens.
-  if (typeof VoiceService !== 'undefined') {
-    VoiceService.toggleListening();
-    if (fab) fab.classList.toggle('active');
-  }
-}
 
 // Update voice FAB state from voice engine
 if (typeof VoiceService !== 'undefined') {
   ensureGlobalVoiceHud();
 
   VoiceService.on('state', (state) => {
-    const fab = document.getElementById('voiceFab');
     updateGlobalVoiceHudStatus(state);
 
     if (state === 'idle' || state === 'waiting') {
@@ -598,23 +576,30 @@ if (typeof VoiceService !== 'undefined') {
       }
     }
 
-    if (!fab) return;
-    if (state === 'listening' || state === 'activated' || state === 'waiting') {
-      fab.classList.add('active');
-      fab.innerHTML = '<i class="fas fa-waveform"></i>';
-    } else if (state === 'processing' || state === 'executing') {
-      fab.classList.add('active');
-      fab.innerHTML = '<i class="fas fa-bolt"></i>';
-    } else if (state === 'speaking') {
-      fab.classList.add('active');
-      fab.innerHTML = '<i class="fas fa-volume-high"></i>';
-    } else {
-      fab.classList.remove('active');
-      fab.innerHTML = '<i class="fas fa-microphone"></i>';
-    }
+
   });
 
   VoiceService.on('transcript', (text, isInterim) => {
+    // If Voice Inventory Modal is open, update its transcript box
+    if (document.getElementById('voiceInventoryModal')?.classList.contains('show')) {
+      const viTranscriptEl = document.getElementById('viTranscript');
+      if (viTranscriptEl) {
+        viTranscriptEl.textContent = text || '...';
+        viTranscriptEl.style.color = isInterim ? 'var(--text-muted)' : 'var(--text-primary)';
+      }
+      
+      // If final transcript is received, process it
+      if (text && !isInterim) {
+        // We delay slightly to let the user see the final text
+        setTimeout(() => {
+          if (document.getElementById('voiceInventoryModal').classList.contains('show')) {
+            processInventoryTranscript(text);
+          }
+        }, 800);
+      }
+      return; // Don't show global HUD when modal is active
+    }
+
     showGlobalVoiceHud();
     updateGlobalVoiceHudText(text, isInterim);
     if (!text) hideGlobalVoiceHudSoon(1800);
@@ -622,6 +607,20 @@ if (typeof VoiceService !== 'undefined') {
 
   VoiceService.on('command', (cmd) => {
     if (!cmd) return;
+
+    // Handle modal confirmations by voice
+    if (document.getElementById('voiceInventoryModal')?.classList.contains('show')) {
+      const text = cmd.transcript?.toLowerCase() || '';
+      if (text.includes('add to inventory') || text.includes('save product') || text.includes('confirm')) {
+        confirmVoiceInventory();
+        return;
+      }
+      if (text.includes('cancel') || text.includes('close') || text.includes('stop')) {
+        closeVoiceInventoryModal();
+        return;
+      }
+    }
+
     if (cmd.feedbackMessage) {
       showGlobalVoiceHud();
       updateGlobalVoiceHudText(cmd.feedbackMessage, false);
@@ -715,4 +714,204 @@ document.addEventListener('DOMContentLoaded', function () {
       if (autoLoadInventory._retries < 10) setTimeout(autoLoadInventory, 200);
     }
   }, 600);
+});
+
+
+// ========== VOICE INVENTORY ADD ==========
+let viMediaRecorder = null;
+let viAudioChunks = [];
+let viIsRecording = false;
+
+window.openVoiceInventoryModal = function() {
+  document.getElementById('voiceInventoryModal').classList.add('show');
+  resetVoiceInventory();
+};
+
+window.closeVoiceInventoryModal = function() {
+  document.getElementById('voiceInventoryModal').classList.remove('show');
+  if (viMediaRecorder && viIsRecording) stopVoiceInventoryRecording();
+  if (typeof VoiceService !== 'undefined') VoiceService.stopListening();
+};
+
+window.resetVoiceInventory = function() {
+  document.getElementById('viStatus').textContent = 'Tap the mic and speak';
+  document.getElementById('viTranscript').textContent = '...';
+  document.getElementById('viStepListening').style.display = 'block';
+  document.getElementById('viStepConfirm').style.display = 'none';
+  document.getElementById('viMicBtn').innerHTML = '<i class="fas fa-microphone"></i>';
+  document.getElementById('viMicBtn').classList.remove('btn-danger');
+  document.getElementById('viMicBtn').classList.add('btn-primary');
+  viAudioChunks = [];
+  viIsRecording = false;
+};
+
+window.toggleVoiceInventoryRecording = async function() {
+  if (typeof VoiceService === 'undefined') {
+    showToast('Voice service not available', 'error');
+    return;
+  }
+
+  if (viIsRecording) {
+    VoiceService.stopListening();
+    viIsRecording = false;
+    updateViMicBtn(false);
+  } else {
+    VoiceService.startListening();
+    viIsRecording = true;
+    updateViMicBtn(true);
+    document.getElementById('viStatus').textContent = 'Listening... Speak now.';
+    document.getElementById('viTranscript').textContent = '...';
+  }
+};
+
+function updateViMicBtn(recording) {
+  const btn = document.getElementById('viMicBtn');
+  if (!btn) return;
+  if (recording) {
+    btn.innerHTML = '<i class="fas fa-stop"></i>';
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-danger');
+  } else {
+    btn.innerHTML = '<i class="fas fa-microphone"></i>';
+    btn.classList.remove('btn-danger');
+    btn.classList.add('btn-primary');
+  }
+}
+
+async function processInventoryTranscript(transcript) {
+  if (!transcript) return;
+  
+  viIsRecording = false;
+  updateViMicBtn(false);
+  VoiceService.stopListening();
+  
+  document.getElementById('viStatus').textContent = 'Parsing details...';
+  
+  try {
+    // 1. STT via Sarvam proxy
+    const sttRes = await fetch('http://127.0.0.1:5005/api/sarvam/asr', {
+      method: 'POST',
+      body: formData,
+      headers: { 'api-subscription-key': 'placeholder' } // Not actually needed as backend uses its own env
+    });
+    const sttData = await sttRes.json();
+    const transcript = (sttData.data && sttData.data.transcript) || '';
+    document.getElementById('viTranscript').textContent = '"' + transcript + '"';
+    
+    if (!transcript) {
+      document.getElementById('viStatus').textContent = 'No speech detected. Please try again.';
+      resetVoiceInventory();
+      return;
+    }
+
+    // STT is already done by browser, now use Sarvam Chat (NLU) to parse
+    const nluPayload = {
+      model: "sarvam-m",
+      messages: [
+        { role: "system", content: "Extract product name, quantity, and price from the text. Return JSON only: {name: string, qty: number, price: number}." },
+        { role: "user", content: transcript }
+      ]
+    };
+    const nluRes = await window.apiCall('/api/sarvam/chat', 'POST', nluPayload);
+    const aiMessage = nluRes.data.choices[0].message.content;
+    const parsed = JSON.parse(aiMessage.match(/\{.*\}/s)[0]);
+    
+    // 3. Preview
+    document.getElementById('viProdName').textContent = parsed.name || '--';
+    document.getElementById('viProdQty').textContent = parsed.qty || '--';
+    document.getElementById('viProdPrice').textContent = parsed.price || '--';
+    
+    window.viCurrentParsed = parsed;
+    document.getElementById('viStepListening').style.display = 'none';
+    document.getElementById('viStepConfirm').style.display = 'block';
+    document.getElementById('viStatus').textContent = 'Product Detected';
+    
+    // Auto-start listening for confirmation if VoiceService is available
+    if (typeof VoiceService !== 'undefined') {
+      VoiceService.speak(`Detected ${parsed.qty || ''} ${parsed.name || 'product'} at ${parsed.price || ''} rupees. Say add to inventory to confirm.`);
+      setTimeout(() => {
+        if (document.getElementById('voiceInventoryModal').classList.contains('show')) {
+          VoiceService.startListening();
+        }
+      }, 1500);
+    }
+  } catch (err) {
+    document.getElementById('viStatus').textContent = 'Error processing voice. Try manual add.';
+    console.error(err);
+  }
+}
+
+window.confirmVoiceInventory = async function() {
+  const parsed = window.viCurrentParsed;
+  if (!parsed || !parsed.name) return;
+  
+  try {
+    const res = await window.apiCall('/inventory/add', 'POST', {
+      name: parsed.name,
+      price: parsed.price || 0,
+      stock: parsed.qty || 0
+    });
+    
+    if (res.ok) {
+      showToast(`✓ ${parsed.name} saved!`);
+      closeVoiceInventoryModal();
+      if (typeof window.refreshInventory === 'function') window.refreshInventory();
+    } else {
+      showToast(res.message, 'error');
+    }
+  } catch (err) {
+    showToast('Failed to save product', 'error');
+  }
+};
+
+// ========== ANALYTICS CHAT ==========
+window.sendAnalyticsChat = async function() {
+  const input = document.getElementById('analyticsChatInput');
+  const chatBox = document.getElementById('analyticsChatBox');
+  const query = input.value.trim();
+  
+  if (!query) return;
+  
+  // Add user message
+  const userMsg = document.createElement('div');
+  userMsg.className = 'chat-msg user';
+  userMsg.textContent = query;
+  chatBox.appendChild(userMsg);
+  
+  input.value = '';
+  chatBox.scrollTop = chatBox.scrollHeight;
+  
+  try {
+    const res = await window.apiCall('/api/analytics/chat', 'POST', { query });
+    
+    const botMsg = document.createElement('div');
+    botMsg.className = 'chat-msg system';
+    
+    if (res.ok) {
+      // Handle the data structure from backend: { ok: true, data: { choices: [...] } }
+      const botContent = (res.data && res.data.choices && res.data.choices[0] && res.data.choices[0].message) 
+        ? res.data.choices[0].message.content 
+        : (res.data && res.data.content) // Fallback for backend mock
+        || "I'm not sure how to answer that.";
+        
+      botMsg.textContent = botContent;
+    } else {
+      botMsg.textContent = "Sorry, I encountered an error. Please try again.";
+      botMsg.classList.add('error');
+    }
+    
+    chatBox.appendChild(botMsg);
+  } catch (err) {
+    const errorMsg = document.createElement('div');
+    errorMsg.className = 'chat-msg system error';
+    errorMsg.textContent = "Unable to connect to the assistant.";
+    chatBox.appendChild(errorMsg);
+  }
+  
+  chatBox.scrollTop = chatBox.scrollHeight;
+};
+
+// Also handle Enter key in analytics chat
+document.getElementById('analyticsChatInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') window.sendAnalyticsChat();
 });

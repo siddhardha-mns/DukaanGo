@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LocalCart — Shop Groceries Online</title>
+  <meta name="description" content="Order groceries from your nearest Kirana store. Fast delivery in under 20 minutes.">
+  <link rel="stylesheet" href="customer.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+<div class="bg-canvas"></div>
+
+<!-- ─── Navbar ─── -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo">L</div>
+    <span class="nav-title">LocalCart</span>
+  </div>
+  <div class="nav-actions">
+    <span class="nav-user" id="navUser"></span>
+    <button class="nav-btn" id="navCartBtn" style="display:none" onclick="toggleMobileCart()">
+      <i class="fas fa-shopping-cart"></i>
+      <span class="cart-badge" id="cartBadge" style="display:none">0</span>
+    </button>
+    <button class="nav-btn" id="navLogout" style="display:none" onclick="handleLogout()">
+      <i class="fas fa-right-from-bracket"></i> Logout
+    </button>
+  </div>
+</nav>
+
+<!-- ═══════ VIEW: AUTH ═══════ -->
+<div class="view active" id="view-auth">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-icon"><i class="fas fa-bag-shopping"></i></div>
+        <div class="auth-title">Welcome to LocalCart</div>
+        <div class="auth-sub">Order groceries from your nearest Kirana store</div>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="authTabLogin" onclick="switchAuthTab('login')">Sign In</button>
+        <button class="auth-tab" id="authTabRegister" onclick="switchAuthTab('register')">Create Account</button>
+      </div>
+
+      <div class="form-error" id="authError"></div>
+
+      <!-- Login Panel -->
+      <div class="form-panel active" id="authPanelLogin">
+        <form onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" id="loginEmail" placeholder="you@example.com" value="demo@customer.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-input" type="password" id="loginPassword" placeholder="Enter your password" value="demo12345" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="loginBtn">
+            <span class="spinner"></span>
+            <span class="btn-label">Sign In</span>
+          </button>
+          <div style="text-align:center; margin-top:16px; font-size:12px; color:var(--text-muted);">
+            Demo Credentials: demo@customer.com / demo12345
+          </div>
+        </form>
+      </div>
+
+      <!-- Register Panel -->
+      <div class="form-panel" id="authPanelRegister">
+        <form onsubmit="handleRegister(event)">
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input class="form-input" type="text" id="regName" placeholder="Your name" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" id="regEmail" placeholder="you@example.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-input" type="password" id="regPassword" placeholder="Min 8 characters" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm Password</label>
+            <input class="form-input" type="password" id="regConfirm" placeholder="Re-enter password" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="regBtn">
+            <span class="spinner"></span>
+            <span class="btn-label"><i class="fas fa-user-plus"></i> Create Account</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ VIEW: CATALOG ═══════ -->
+<div class="view" id="view-catalog">
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-title">Shop Groceries 🛒</div>
+      <div class="page-sub">Fresh products from your neighbourhood Kirana store</div>
+    </div>
+
+    <div class="cat-bar" id="catBar">
+      <button class="cat-pill active" data-cat="All">All</button>
+    </div>
+
+    <div class="catalog-layout">
+      <div class="product-grid" id="productGrid"></div>
+
+      <!-- Cart Sidebar -->
+      <div class="cart-sidebar" id="cartSidebar">
+        <div class="cart-title"><i class="fas fa-shopping-cart"></i> Your Cart</div>
+        <div class="cart-empty" id="cartEmpty">
+          <i class="fas fa-cart-plus"></i>
+          Your cart is empty.<br>Add some products to get started!
+        </div>
+        <div id="cartList"></div>
+        <div class="cart-footer" id="cartFooter" style="display:none">
+          <div class="cart-total">
+            <span>Total</span>
+            <span class="cart-total-val" id="cartTotal">₹0</span>
+          </div>
+          <button class="btn btn-primary btn-block" onclick="goToCheckout()">
+            <i class="fas fa-arrow-right"></i> Proceed to Checkout
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ VIEW: CHECKOUT ═══════ -->
+<div class="view" id="view-checkout">
+  <div class="main-content">
+    <div class="checkout-container">
+      <div class="page-header">
+        <button class="btn btn-ghost" onclick="showView('catalog')" style="margin-bottom:8px">
+          <i class="fas fa-arrow-left"></i> Back to catalog
+        </button>
+        <div class="page-title">Checkout</div>
+      </div>
+
+      <!-- Order Summary -->
+      <div class="checkout-card">
+        <div class="checkout-card-title"><i class="fas fa-receipt"></i> Order Summary</div>
+        <div id="checkoutItems"></div>
+        <div class="checkout-item" style="border-top:1px solid var(--border);margin-top:8px;padding-top:12px;font-weight:700;font-size:15px">
+          <span>Total</span>
+          <span id="checkoutTotal" style="color:var(--green)">₹0</span>
+        </div>
+      </div>
+
+      <!-- Delivery Address -->
+      <div class="checkout-card">
+        <div class="checkout-card-title"><i class="fas fa-map-marker-alt"></i> Delivery Address</div>
+        <textarea class="form-input" id="deliveryAddress" placeholder="Enter your full delivery address (min 20 characters)..." rows="3"></textarea>
+      </div>
+
+      <!-- Payment Method -->
+      <div class="checkout-card">
+        <div class="checkout-card-title"><i class="fas fa-credit-card"></i> Payment Method</div>
+        <div class="radio-group">
+          <label class="radio-option selected" data-method="COD" onclick="selectPayment('COD')">
+            <input type="radio" name="payment" value="COD" checked>
+            <div>
+              <div class="radio-label">💵 Cash on Delivery</div>
+              <div class="radio-desc">Pay when your order arrives</div>
+            </div>
+          </label>
+          <label class="radio-option" data-method="UPI" onclick="selectPayment('UPI')">
+            <input type="radio" name="payment" value="UPI">
+            <div>
+              <div class="radio-label">📱 UPI Payment</div>
+              <div class="radio-desc">Pay via Google Pay, PhonePe, etc.</div>
+            </div>
+          </label>
+        </div>
+        <div class="upi-placeholder" id="upiPlaceholder" style="display:none">
+          <i class="fas fa-qrcode" style="font-size:48px;display:block;margin-bottom:8px;opacity:0.5"></i>
+          Pay via UPI before placing your order
+        </div>
+      </div>
+
+      <div class="form-error" id="checkoutError"></div>
+
+      <button class="btn btn-primary btn-block" id="placeOrderBtn" onclick="placeOrder()" style="margin-top:8px;padding:14px">
+        <span class="spinner"></span>
+        <span class="btn-label"><i class="fas fa-check"></i> Place Order</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ VIEW: CONFIRMATION ═══════ -->
+<div class="view" id="view-confirm">
+  <div class="confirm-container">
+    <div class="confirm-card">
+      <div class="confirm-icon"><i class="fas fa-check"></i></div>
+      <div class="confirm-title">Order Placed! 🎉</div>
+      <div class="confirm-sub">Your order is being prepared for delivery</div>
+
+      <div class="confirm-detail">
+        <span class="confirm-detail-label">Order ID</span>
+        <span class="confirm-detail-val" id="confirmOrderId">#—</span>
+      </div>
+      <div class="confirm-detail">
+        <span class="confirm-detail-label">Estimated Delivery</span>
+        <span class="confirm-detail-val" id="confirmEta">~20 minutes</span>
+      </div>
+      <div class="confirm-detail">
+        <span class="confirm-detail-label">Total</span>
+        <span class="confirm-detail-val" style="color:var(--green)" id="confirmTotal">₹0</span>
+      </div>
+      <div class="confirm-detail">
+        <span class="confirm-detail-label">Payment</span>
+        <span class="confirm-detail-val" id="confirmPayment">COD</span>
+      </div>
+
+      <div class="confirm-items">
+        <div class="confirm-items-title">Items Ordered</div>
+        <div id="confirmItemsList"></div>
+      </div>
+
+      <button class="btn btn-primary btn-block" onclick="backToCatalog()" style="margin-top:16px">
+        <i class="fas fa-arrow-left"></i> Back to Catalog
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="cart.js"></script>
+<script src="customer.js"></script>
+</body>
+</html>

@@ -192,8 +192,8 @@
 
 <!-- ========== 19. SMART INSIGHTS ========== -->
 <div class="section" id="sec-smartinsights">
-<div class="section-header"><div><div class="section-title"><i class="fas fa-lightbulb"></i> Smart Insights</div><div class="section-subtitle">AI-powered analysis from your real transaction data</div></div>
-<button class="btn btn-secondary" onclick="refreshInsights()"><i class="fas fa-rotate"></i> Refresh</button>
+<div class="section-header"><div><div class="section-title"><i class="fas fa-lightbulb"></i> Smart Insights</div><div class="section-subtitle">Advanced analytics powered by Sarvam.ai and your transaction data</div></div>
+<button class="btn btn-secondary" onclick="refreshInsights()"><i class="fas fa-rotate"></i> Sync AI Insights</button>
 </div>
 
 <div class="grid-4 mb-24">

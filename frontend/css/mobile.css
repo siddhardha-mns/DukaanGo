@@ -408,15 +408,7 @@
     grid-template-columns: 1fr !important;
   }
 
-  /* === VOICE FAB — on mobile push to front === */
-  .voice-fab {
-    bottom: 74px !important;
-    right: 16px !important;
-    width: 48px !important;
-    height: 48px !important;
-    font-size: 18px !important;
-    z-index: 201 !important;
-  }
+
 
   .global-voice-hud {
     right: 12px !important;
