@@ -1,5 +1,5 @@
 /* ============================================================
-   buttons.js — LocalCart Master Button Handler
+   buttons.js — DukaanGo Master Button Handler
    Wires up every interactive element across all sections
    ============================================================ */
 

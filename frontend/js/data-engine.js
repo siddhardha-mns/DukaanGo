@@ -1,4 +1,4 @@
-// ========== DATA ENGINE — LocalCart Voice Assistant ==========
+// ========== DATA ENGINE — DukaanGo Voice Assistant ==========
 // Manages: Inventory, Billing, Transactions, Apriori, Price Memory, localStorage
 
 const DataEngine = (() => {

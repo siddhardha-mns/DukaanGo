@@ -1,5 +1,5 @@
 /**
- * customer.js — Core application logic for LocalCart Customer Panel
+ * customer.js — Core application logic for DukaanGo Customer Panel
  */
 const BACKEND = 'http://127.0.0.1:5005';
 const TOKEN_KEY = 'lc_customer_token';

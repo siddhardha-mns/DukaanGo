@@ -1,5 +1,5 @@
 /**
- * cart.js — In-memory cart state manager for LocalCart Customer Panel
+ * cart.js — In-memory cart state manager for DukaanGo Customer Panel
  */
 const cart = {
   items: [],

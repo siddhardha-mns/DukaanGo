@@ -1,5 +1,5 @@
 /* ============================================================
-   filters.js — LocalCart Inventory Filter/Sort + Orders Source Filter
+   filters.js — DukaanGo Inventory Filter/Sort + Orders Source Filter
    ============================================================ */
 (function () {
   'use strict';
