@@ -193,7 +193,10 @@ def sarvam_asr():
     try:
         # Forward the audio file to Sarvam
         files = {'file': (request.files['file'].filename, request.files['file'].read(), request.files['file'].content_type)}
-        payload = {'model': 'saaras:v1'} # Default model
+        payload = {'model': 'saaras:v3'}
+        # Allow caller to override language code (e.g. hi-IN, te-IN, en-IN)
+        if request.form.get('language_code'):
+            payload['language_code'] = request.form.get('language_code')
         
         response = requests.post(
             "https://api.sarvam.ai/speech-to-text",
@@ -249,52 +252,97 @@ def sarvam_chat():
 @app.route('/api/analytics/chat', methods=['POST'])
 def analytics_chat():
     if not SARVAM_API_KEY:
-        # Fallback to a very simple local response if Sarvam is offline
-        return jsonify({"ok": True, "data": {"content": "I am currently in offline mode. Please configure Sarvam AI for smarter insights."}})
+        return jsonify({"ok": True, "data": {"content": "Sarvam AI not configured. Please add SARVAM_API_KEY to backend/.env."}})
 
     try:
-        user_query = request.json.get("query")
-        
-        # Fetch some context from DB
+        user_query = (request.json or {}).get("query", "")
+        if not user_query:
+            return jsonify({"ok": False, "message": "Query is required"}), 400
+
         conn = get_db()
         cursor = conn.cursor()
-        
-        # Summary statistics
-        cursor.execute("SELECT SUM(total) as revenue, COUNT(*) as txns FROM transactions")
+
+        # Overall stats
+        cursor.execute("SELECT COALESCE(SUM(total),0) as revenue, COUNT(*) as txns FROM transactions")
         stats = cursor.fetchone()
-        
-        # Low stock items
-        cursor.execute("SELECT name, qty FROM inventory WHERE qty < 10 LIMIT 5")
-        low_stock = [f"{r['name']} ({r['qty']})" for r in cursor.fetchall()]
-        
+
+        # Today's stats
+        today = datetime.date.today().strftime('%Y-%m-%d')
+        cursor.execute("SELECT COALESCE(SUM(total),0) as rev, COUNT(*) as txns FROM transactions WHERE date = ?", (today,))
+        today_stats = cursor.fetchone()
+
+        # Top 5 selling items (all time)
+        cursor.execute("""
+            SELECT ti.item_name, SUM(ti.qty) as total_qty, SUM(ti.subtotal) as total_rev
+            FROM transaction_items ti
+            GROUP BY ti.item_name
+            ORDER BY total_qty DESC LIMIT 5
+        """)
+        top_items = [f"{r['item_name']} ({int(r['total_qty'])} sold, ₹{r['total_rev']:.0f})" for r in cursor.fetchall()]
+
+        # Low stock
+        cursor.execute("SELECT name, qty FROM inventory WHERE qty < 10 ORDER BY qty ASC LIMIT 8")
+        low_stock = [f"{r['name']} ({r['qty']} left)" for r in cursor.fetchall()]
+
+        # Full inventory snapshot (name, price, qty, category)
+        cursor.execute("SELECT name, price, qty, category FROM inventory ORDER BY name LIMIT 40")
+        inventory = [f"{r['name']} — ₹{r['price']}, stock:{r['qty']}, cat:{r['category']}" for r in cursor.fetchall()]
+
+        # Recent 5 transactions
+        cursor.execute("SELECT id, date, total, customerName FROM transactions ORDER BY date DESC LIMIT 5")
+        recent_txns = [f"{r['id']} on {r['date']}: ₹{r['total']} ({r['customerName'] or 'walk-in'})" for r in cursor.fetchall()]
+
         conn.close()
-        
-        context = f"Total Revenue: ₹{stats['revenue'] or 0}. Total Transactions: {stats['txns'] or 0}. Low stock: {', '.join(low_stock) or 'None'}."
-        
-        system_prompt = f"You are an AI assistant for a Kirana shop owner. Use this context: {context}. Be concise and helpful."
-        
+
+        context = f"""
+STORE DATA FOR DUKAANGO KIRANA:
+
+TODAY ({today}):
+- Revenue: ₹{today_stats['rev']:.0f} across {today_stats['txns']} transactions
+
+ALL TIME:
+- Total Revenue: ₹{stats['revenue']:.0f} | Total Transactions: {stats['txns']}
+
+TOP SELLING ITEMS:
+{chr(10).join(top_items) if top_items else 'No sales data yet'}
+
+LOW STOCK (< 10 units):
+{chr(10).join(low_stock) if low_stock else 'All items well-stocked'}
+
+INVENTORY ({len(inventory)} items shown):
+{chr(10).join(inventory) if inventory else 'No inventory data'}
+
+RECENT TRANSACTIONS:
+{chr(10).join(recent_txns) if recent_txns else 'No transactions yet'}
+""".strip()
+
+        system_prompt = (
+            "You are an AI assistant for a Kirana (Indian grocery) store owner using the DukaanGo platform. "
+            "Answer questions about store performance, inventory, sales trends, and business advice. "
+            "Use the store data provided. Be concise, friendly, and practical. "
+            "Use ₹ for currency. If data is missing, say so honestly.\n\n"
+            f"{context}"
+        )
+
         payload = {
-            "model": "sarvam-m",
+            "model": "sarvam-105b",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_query}
             ]
         }
-        
+
         response = requests.post(
             "https://api.sarvam.ai/v1/chat/completions",
             headers={"api-subscription-key": SARVAM_API_KEY, "Content-Type": "application/json"},
             json=payload
         )
-        
-        
+
         sarvam_data = response.json()
-        
-        # Clean up <think> blocks if present in the response content
-        if "choices" in sarvam_data and len(sarvam_data["choices"]) > 0:
+
+        if "choices" in sarvam_data and sarvam_data["choices"]:
             content = sarvam_data["choices"][0].get("message", {}).get("content", "")
             if content:
-                # Remove everything between <think> and </think> (including the tags)
                 content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
                 sarvam_data["choices"][0]["message"]["content"] = content
 
@@ -587,6 +635,22 @@ def customer_orders():
 
 if __name__ == '__main__':
     init_db()
+
+    # Seed demo customer account if it doesn't exist
+    try:
+        _conn = get_db()
+        _cur = _conn.cursor()
+        _cur.execute("SELECT id FROM customers WHERE email = ?", ("demo@customer.com",))
+        if not _cur.fetchone():
+            _hash = bcrypt.hashpw(b"demo12345", bcrypt.gensalt()).decode()
+            _cur.execute(
+                "INSERT INTO customers (email, password_hash, name, phone) VALUES (?, ?, ?, ?)",
+                ("demo@customer.com", _hash, "Demo Customer", "9999999999")
+            )
+            _conn.commit()
+        _conn.close()
+    except Exception as _e:
+        print(f"[warn] Could not seed demo customer: {_e}")
     port = int(os.environ.get("APP_PORT", 5005))
     host = os.environ.get("APP_HOST", "0.0.0.0")
     print(f"Starting backend server on {host}:{port}")
