@@ -735,16 +735,57 @@ window.closeVoiceInventoryModal = function() {
   if (typeof VoiceService !== 'undefined') VoiceService.stopListening();
 };
 
+window.viSwitchTab = function(tab) {
+  const micTab = document.getElementById('viTabMic');
+  const fileTab = document.getElementById('viTabFile');
+  const micPanel = document.getElementById('viPanelMic');
+  const filePanel = document.getElementById('viPanelFile');
+  if (!micTab || !fileTab || !micPanel || !filePanel) return;
+
+  // Always go back to input step when switching tabs
+  const stepListening = document.getElementById('viStepListening');
+  const stepConfirm = document.getElementById('viStepConfirm');
+  if (stepListening) stepListening.style.display = 'block';
+  if (stepConfirm) stepConfirm.style.display = 'none';
+
+  if (tab === 'mic') {
+    micTab.style.background = 'var(--accent-blue)'; micTab.style.color = '#fff';
+    fileTab.style.background = 'transparent'; fileTab.style.color = 'var(--text-muted)';
+    micPanel.style.display = 'block'; filePanel.style.display = 'none';
+    document.getElementById('viStatus').textContent = 'Tap the mic and speak';
+    document.getElementById('viStatus').style.color = 'var(--accent-blue)';
+  } else {
+    fileTab.style.background = 'var(--accent-blue)'; fileTab.style.color = '#fff';
+    micTab.style.background = 'transparent'; micTab.style.color = 'var(--text-muted)';
+    filePanel.style.display = 'block'; micPanel.style.display = 'none';
+    document.getElementById('viStatus').textContent = 'Choose an audio file and transcribe';
+    document.getElementById('viStatus').style.color = 'var(--accent-blue)';
+  }
+  document.getElementById('viFileStatus').textContent = '';
+};
+
 window.resetVoiceInventory = function() {
   document.getElementById('viStatus').textContent = 'Tap the mic and speak';
+  document.getElementById('viStatus').style.color = 'var(--accent-blue)';
   document.getElementById('viTranscript').textContent = '...';
   document.getElementById('viStepListening').style.display = 'block';
   document.getElementById('viStepConfirm').style.display = 'none';
   document.getElementById('viMicBtn').innerHTML = '<i class="fas fa-microphone"></i>';
   document.getElementById('viMicBtn').classList.remove('btn-danger');
   document.getElementById('viMicBtn').classList.add('btn-primary');
+  const fs = document.getElementById('viFileStatus'); if (fs) fs.textContent = '';
+  const fi = document.getElementById('viFileInput'); if (fi) fi.value = '';
   viAudioChunks = [];
   viIsRecording = false;
+  // Switch to mic tab without calling viSwitchTab to avoid circular reset
+  const micTab = document.getElementById('viTabMic');
+  const fileTab = document.getElementById('viTabFile');
+  const micPanel = document.getElementById('viPanelMic');
+  const filePanel = document.getElementById('viPanelFile');
+  if (micTab) { micTab.style.background = 'var(--accent-blue)'; micTab.style.color = '#fff'; }
+  if (fileTab) { fileTab.style.background = 'transparent'; fileTab.style.color = 'var(--text-muted)'; }
+  if (micPanel) micPanel.style.display = 'block';
+  if (filePanel) filePanel.style.display = 'none';
 };
 
 window.toggleVoiceInventoryRecording = async function() {
@@ -752,7 +793,6 @@ window.toggleVoiceInventoryRecording = async function() {
     showToast('Voice service not available', 'error');
     return;
   }
-
   if (viIsRecording) {
     VoiceService.stopListening();
     viIsRecording = false;
@@ -780,40 +820,90 @@ function updateViMicBtn(recording) {
   }
 }
 
+// ---- Audio file upload for inventory ----
+window.submitInventoryAudio = async function() {
+  const input = document.getElementById('viFileInput');
+  const file = input && input.files[0];
+  const btn = document.getElementById('viFileBtn');
+  const status = document.getElementById('viFileStatus');
+
+  if (!file) {
+    status.style.color = 'var(--accent-red,#e74c3c)';
+    status.textContent = 'Please choose an audio file first.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcribing…';
+  status.style.color = 'var(--text-muted)';
+  status.textContent = 'Sending to Sarvam…';
+
+  try {
+    const langSelect = document.getElementById('voiceLangSelectHeader');
+    const langCode = langSelect ? langSelect.value : 'en-IN';
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('language_code', langCode);
+
+    const backendUrl = (typeof VoiceService !== 'undefined' && VoiceService.getState)
+      ? VoiceService.getState().backendUrl : 'http://127.0.0.1:5005';
+
+    const res = await fetch(`${backendUrl}/api/sarvam/asr`, { method: 'POST', body: form });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.message || 'ASR failed');
+
+    const d = json.data || {};
+    const transcript = d.transcript || d.text || d.transcription ||
+      (Array.isArray(d.chunks) ? d.chunks.map(c => c.text || '').join(' ') : '') ||
+      (Array.isArray(d.segments) ? d.segments.map(c => c.text || '').join(' ') : '');
+
+    if (!transcript || !transcript.trim()) throw new Error('No speech detected in audio');
+
+    status.style.color = 'var(--accent-green)';
+    status.textContent = `Heard: "${transcript}"`;
+    document.getElementById('viTranscript').textContent = transcript;
+
+    await processInventoryTranscript(transcript.trim());
+  } catch (err) {
+    status.style.color = 'var(--accent-red,#e74c3c)';
+    status.textContent = `Error: ${err.message}`;
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-upload"></i> Transcribe &amp; Parse';
+  }
+};
+
 async function processInventoryTranscript(transcript) {
   if (!transcript) return;
-  
+
   viIsRecording = false;
   updateViMicBtn(false);
   VoiceService.stopListening();
-  
+
   document.getElementById('viStatus').textContent = 'Parsing details...';
   document.getElementById('viTranscript').textContent = '"' + transcript + '"';
-  
+
   try {
-    // Detect language from transcript
-    const detectedLang = (typeof LangDetect !== 'undefined') 
-      ? LangDetect.detectCommand(transcript) 
-      : 'en';
-    
-    // Use Sarvam Chat NLU to parse product details (online)
-    // Fallback to local parsing if offline or Sarvam unavailable
+    const detectedLang = (typeof LangDetect !== 'undefined')
+      ? LangDetect.detectCommand(transcript) : 'en';
+
     let parsed = null;
-    
+
     if (navigator.onLine) {
       try {
-        const langInstruction = detectedLang === 'te' 
-          ? 'The input is in Telugu. Extract product name, quantity, and price.' 
-          : detectedLang === 'hi' 
-            ? 'The input is in Hindi. Extract product name, quantity, and price.'
-            : 'Extract product name, quantity, and price.';
-        
+        const langInstruction = detectedLang === 'te'
+          ? 'The input is in Telugu. Extract product name, quantity (number of units/kg), and price per unit in rupees.'
+          : detectedLang === 'hi'
+            ? 'The input is in Hindi. Extract product name, quantity (number of units/kg), and price per unit in rupees.'
+            : 'Extract product name, quantity (number of units/kg), and price per unit in rupees.';
+
         const nluPayload = {
           model: "sarvam-105b",
           reasoning_effort: null,
           response_format: { type: "json_object" },
           messages: [
-            { role: "system", content: `${langInstruction} Return JSON only: {name: string, qty: number, price: number}.` },
+            { role: "system", content: `${langInstruction} Return JSON only: {"name": string, "qty": number|null, "price": number|null}. Use null if a field is not mentioned.` },
             { role: "user", content: transcript }
           ]
         };
@@ -826,100 +916,113 @@ async function processInventoryTranscript(transcript) {
         console.warn('Sarvam NLU failed, using local parser:', e);
       }
     }
-    
-    // Fallback: local regex-based parser
-    if (!parsed) {
-      parsed = parseInventoryLocal(transcript);
-    }
-    
-    // 3. Preview
-    document.getElementById('viProdName').textContent = parsed.name || '--';
-    document.getElementById('viProdQty').textContent = parsed.qty || '--';
-    document.getElementById('viProdPrice').textContent = parsed.price || '--';
-    
+
+    if (!parsed) parsed = parseInventoryLocal(transcript);
+
+    // Populate editable fields
+    document.getElementById('viProdName').value = parsed.name || '';
+    document.getElementById('viProdQty').value = (parsed.qty !== null && parsed.qty !== undefined) ? parsed.qty : '';
+    document.getElementById('viProdPrice').value = (parsed.price !== null && parsed.price !== undefined) ? parsed.price : '';
+
     window.viCurrentParsed = parsed;
     window.viDetectedLang = detectedLang;
+
     document.getElementById('viStepListening').style.display = 'none';
     document.getElementById('viStepConfirm').style.display = 'block';
-    document.getElementById('viStatus').textContent = 'Product Detected';
-    
-    // Auto-start listening for confirmation if VoiceService is available
-    if (typeof VoiceService !== 'undefined') {
-      const langName = detectedLang === 'te' ? 'Telugu' : detectedLang === 'hi' ? 'Hindi' : 'English';
-      VoiceService.speak(`Detected ${parsed.qty || ''} ${parsed.name || 'product'} at ${parsed.price || ''} rupees. Say add to inventory to confirm.`);
+    document.getElementById('viMissingMsg').style.display = 'none';
+
+    // Determine what's missing and set status
+    const missingFields = [];
+    if (!parsed.qty && parsed.qty !== 0) missingFields.push('quantity');
+    if (!parsed.price && parsed.price !== 0) missingFields.push('price');
+
+    if (missingFields.length) {
+      document.getElementById('viStatus').textContent = `⚠ Missing: ${missingFields.join(' & ')} — please fill in`;
+      document.getElementById('viStatus').style.color = 'var(--accent-amber,#f59e0b)';
+    } else {
+      document.getElementById('viStatus').textContent = 'Product detected — verify and save';
+      document.getElementById('viStatus').style.color = 'var(--accent-green)';
+    }
+
+    if (typeof VoiceService !== 'undefined' && missingFields.length === 0) {
+      VoiceService.speak(`Detected ${parsed.qty} ${parsed.name} at ${parsed.price} rupees. Say add to inventory to confirm.`);
       setTimeout(() => {
-        if (document.getElementById('voiceInventoryModal').classList.contains('show')) {
-          VoiceService.startListening();
-        }
+        if (document.getElementById('voiceInventoryModal').classList.contains('show')) VoiceService.startListening();
       }, 1500);
     }
   } catch (err) {
-    document.getElementById('viStatus').textContent = 'Error processing voice. Try manual add.';
+    document.getElementById('viStatus').textContent = 'Error processing. Try again.';
+    document.getElementById('viStatus').style.color = 'var(--accent-red,#e74c3c)';
     console.error(err);
   }
 }
 
-/**
- * Local regex-based parser for inventory items (offline fallback)
- */
 function parseInventoryLocal(text) {
-  if (!text) return { name: '', qty: 10, price: 0 };
-  
+  if (!text) return { name: '', qty: null, price: null };
   const normalized = text.toLowerCase().trim();
-  
-  // Extract numbers
   const numbers = [];
-  const numWords = { 'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10,
-    'twenty':20,'thirty':30,'fifty':50,'hundred':100 };
-  
-  // Find digit numbers
-  const digitMatches = normalized.match(/\d+/g);
+  const digitMatches = normalized.match(/\d+(\.\d+)?/g);
   if (digitMatches) numbers.push(...digitMatches.map(Number));
-  
-  // Find word numbers
-  for (const [word, val] of Object.entries(numWords)) {
-    if (normalized.includes(word)) numbers.push(val);
-  }
-  
-  // Extract item name: remove numbers, price words, common filler words
+
   let name = normalized
-    .replace(/\d+/g, '')
+    .replace(/\d+(\.\d+)?/g, '')
     .replace(/at\s*₹?\d+/g, '')
     .replace(/rs\.?\s*\d+/g, '')
-    .replace(/price\s*\d+/g, '')
-    .replace(/add|product|new|item|inventory|chey|vesuko|daalo|jodo/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  
-  // Apply item aliases if available
-  if (typeof applyItemAliases === 'function') {
-    name = applyItemAliases(name);
-  }
-  
+    .replace(/\b(add|product|new|item|inventory|chey|vesuko|daalo|jodo|units?|kg|pieces?|pcs|rupees?|rs|price|at)\b/gi, '')
+    .replace(/\s+/g, ' ').trim();
+
   return {
     name: name || 'Unknown Product',
-    qty: numbers.length > 0 ? numbers[0] : 10,
-    price: numbers.length > 1 ? numbers[1] : 0
+    qty: numbers.length > 0 ? numbers[0] : null,
+    price: numbers.length > 1 ? numbers[1] : null
   };
 }
 
 window.confirmVoiceInventory = async function() {
-  const parsed = window.viCurrentParsed;
-  if (!parsed || !parsed.name) return;
-  
+  const nameEl = document.getElementById('viProdName');
+  const qtyEl = document.getElementById('viProdQty');
+  const priceEl = document.getElementById('viProdPrice');
+  const missingMsg = document.getElementById('viMissingMsg');
+
+  const name = nameEl.value.trim();
+  const qty = parseFloat(qtyEl.value);
+  const price = parseFloat(priceEl.value);
+
+  // Strict validation
+  const missing = [];
+  if (!name) missing.push('product name');
+  if (!qtyEl.value.trim() || isNaN(qty) || qty < 0) missing.push('quantity');
+  if (!priceEl.value.trim() || isNaN(price) || price < 0) missing.push('price');
+
+  if (missing.length) {
+    missingMsg.textContent = `Please provide: ${missing.join(', ')}`;
+    missingMsg.style.display = 'block';
+    if (typeof VoiceService !== 'undefined') {
+      VoiceService.speak(`Please provide ${missing.join(' and ')}`);
+    }
+    return;
+  }
+
+  missingMsg.style.display = 'none';
+
   try {
-    const res = await window.apiCall('/inventory/add', 'POST', {
-      name: parsed.name,
-      price: parsed.price || 0,
-      stock: parsed.qty || 0
-    });
-    
+    const res = await window.apiCall('/inventory/add', 'POST', { name, price, stock: qty });
     if (res.ok) {
-      showToast(`✓ ${parsed.name} saved!`);
+      // Also update DataEngine local store
+      if (typeof DataEngine !== 'undefined') {
+        const existing = DataEngine.getItem(name);
+        if (existing) {
+          DataEngine.updateStock(existing.id, qty);
+        } else {
+          DataEngine.addNewItem({ name, price, qty, unit: 'pcs', category: 'General' });
+        }
+      }
+      const action = (typeof DataEngine !== 'undefined' && DataEngine.getItem(name)) ? 'Updated' : 'Added';
+      showToast(`✓ ${action}: ${name} — ${qty} units @ ₹${price}`);
       closeVoiceInventoryModal();
       if (typeof window.refreshInventory === 'function') window.refreshInventory();
     } else {
-      showToast(res.message, 'error');
+      showToast(res.message || 'Failed to save', 'error');
     }
   } catch (err) {
     showToast('Failed to save product', 'error');
@@ -931,45 +1034,51 @@ window.sendAnalyticsChat = async function() {
   const input = document.getElementById('analyticsChatInput');
   const chatBox = document.getElementById('analyticsChatBox');
   const query = input.value.trim();
-  
   if (!query) return;
-  
-  // Add user message
+
+  // User bubble
   const userMsg = document.createElement('div');
   userMsg.className = 'chat-msg user';
   userMsg.textContent = query;
   chatBox.appendChild(userMsg);
-  
   input.value = '';
   chatBox.scrollTop = chatBox.scrollHeight;
-  
+
+  // Loading bubble
+  const loadingMsg = document.createElement('div');
+  loadingMsg.className = 'chat-msg system loading';
+  loadingMsg.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Thinking…';
+  chatBox.appendChild(loadingMsg);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
   try {
     const res = await window.apiCall('/api/analytics/chat', 'POST', { query });
-    
+    loadingMsg.remove();
+
     const botMsg = document.createElement('div');
     botMsg.className = 'chat-msg system';
-    
+
     if (res.ok) {
-      // Handle the data structure from backend: { ok: true, data: { choices: [...] } }
-      const botContent = (res.data && res.data.choices && res.data.choices[0] && res.data.choices[0].message) 
-        ? res.data.choices[0].message.content 
-        : (res.data && res.data.content) // Fallback for backend mock
+      const content = (res.data && res.data.choices && res.data.choices[0] && res.data.choices[0].message)
+        ? res.data.choices[0].message.content
+        : (res.data && res.data.content)
         || "I'm not sure how to answer that.";
-        
-      botMsg.textContent = botContent;
+      // Render newlines as <br>
+      botMsg.innerHTML = content.replace(/\n/g, '<br>');
     } else {
-      botMsg.textContent = "Sorry, I encountered an error. Please try again.";
+      botMsg.textContent = res.message || "Sorry, I encountered an error.";
       botMsg.classList.add('error');
     }
-    
+
     chatBox.appendChild(botMsg);
   } catch (err) {
+    loadingMsg.remove();
     const errorMsg = document.createElement('div');
     errorMsg.className = 'chat-msg system error';
     errorMsg.textContent = "Unable to connect to the assistant.";
     chatBox.appendChild(errorMsg);
   }
-  
+
   chatBox.scrollTop = chatBox.scrollHeight;
 };
 

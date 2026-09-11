@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>LocalCart — Store Owner</title>
-<meta name="description" content="Store Owner dashboard for LocalCart, the voice-powered kirana shop assistant.">
+<title>DukaanGo — Store Owner</title>
+<meta name="description" content="Store Owner dashboard for DukaanGo, the voice-powered kirana shop assistant.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="LocalCart">
+<meta name="apple-mobile-web-app-title" content="DukaanGo">
 <meta name="theme-color" content="#07070d">
 <link rel="manifest" href="assets/manifest.json">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
@@ -23,7 +23,7 @@
 <aside class="sidebar" id="sidebar">
 <div class="sidebar-header">
 <div class="sidebar-logo">L</div>
-<span class="sidebar-brand">LocalCart</span>
+<span class="sidebar-brand">DukaanGo</span>
 <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()"><i class="fas fa-chevron-left"></i></button>
 </div>
 <nav class="sidebar-nav">
@@ -126,7 +126,7 @@
 
 <!-- MOBILE HEADER -->
 <div class="mobile-header">
-<div><div class="mobile-header-title" id="mobileTitle">LocalCart</div></div>
+<div><div class="mobile-header-title" id="mobileTitle">DukaanGo</div></div>
 <div class="mobile-header-actions">
 <div class="sync-indicator sync-online" style="font-size:10px;padding:4px 8px"><i class="fas fa-circle" style="font-size:5px"></i> Online</div>
 <button class="mobile-header-btn"><i class="fas fa-search"></i></button>
@@ -400,11 +400,11 @@
         <i class="fas fa-comments" style="color:var(--accent-blue)"></i>
         <span class="font-bold">Ask AI Analytics Assistant</span>
     </div>
-    <div id="analyticsChatBox" class="chat-box" style="height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 12px; background: rgba(0,0,0,0.2);">
-        <div class="chat-msg system">Hello! I am your AI Insights assistant. Ask me anything about your store's performance.</div>
+    <div id="analyticsChatBox" class="chat-box" style="height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--bg-input);">
+        <div class="chat-msg system">Hello! I'm your DukaanGo AI assistant. Ask me about today's revenue, top-selling items, low stock alerts, or any business question.</div>
     </div>
     <div class="flex gap-8">
-        <input type="text" id="analyticsChatInput" class="input-field" placeholder="How was my revenue today?" style="flex: 1;">
+        <input type="text" id="analyticsChatInput" class="input-field" placeholder="e.g. How was revenue today? What's low on stock?" style="flex: 1;">
         <button class="btn btn-primary" onclick="sendAnalyticsChat()"><i class="fas fa-paper-plane"></i></button>
     </div>
 </div>
@@ -476,47 +476,80 @@
 </div>
 
 <div class="modal-overlay" id="voiceInventoryModal">
-<div class="modal" style="max-width: 500px;">
+<div class="modal" style="max-width: 520px;">
 <div class="modal-header">
-    <div class="modal-title">Voice Inventory Add</div>
+    <div class="modal-title"><i class="fas fa-microphone" style="margin-right:8px"></i>Voice Inventory</div>
     <button class="modal-close" onclick="closeVoiceInventoryModal()">&times;</button>
 </div>
-<div style="text-align: center; padding: 20px;">
-    <div id="viStatus" class="mb-16 font-bold" style="color:var(--accent-blue)">Tap the mic and speak</div>
-    
-    <!-- Step 1: Listening -->
+<div style="padding: 20px;">
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;border:1px solid var(--border-color);border-radius:var(--radius-md);overflow:hidden;margin-bottom:20px">
+        <button id="viTabMic" onclick="viSwitchTab('mic')" style="flex:1;padding:10px;font-size:0.85rem;font-weight:600;border:none;background:var(--accent-blue);color:#fff;cursor:pointer"><i class="fas fa-microphone"></i> Live Mic</button>
+        <button id="viTabFile" onclick="viSwitchTab('file')" style="flex:1;padding:10px;font-size:0.85rem;font-weight:600;border:none;background:transparent;color:var(--text-muted);cursor:pointer"><i class="fas fa-file-audio"></i> Upload Audio</button>
+    </div>
+
+    <div id="viStatus" class="mb-16 font-bold" style="color:var(--accent-blue);text-align:center">Tap the mic and speak</div>
+
+    <!-- Step 1: Input (mic or file) -->
     <div id="viStepListening">
-        <div class="text-sm text-muted mb-24">Say something like: "Add 50 units of Rice at 80 rupees"</div>
-        <div id="viMicContainer" style="margin-bottom: 24px;">
-            <button id="viMicBtn" class="btn btn-primary btn-lg" style="width: 80px; height: 80px; border-radius: 50%; font-size: 32px;" onclick="toggleVoiceInventoryRecording()">
-                <i class="fas fa-microphone"></i>
+
+        <!-- Mic panel -->
+        <div id="viPanelMic" style="text-align:center">
+            <div class="text-sm text-muted mb-16">Say: <em>"Add 50 units of Rice at 80 rupees"</em></div>
+            <div style="margin-bottom:20px">
+                <button id="viMicBtn" class="btn btn-primary btn-lg" style="width:80px;height:80px;border-radius:50%;font-size:28px" onclick="toggleVoiceInventoryRecording()">
+                    <i class="fas fa-microphone"></i>
+                </button>
+            </div>
+            <div id="viTranscript" class="chat-msg system" style="min-height:40px;font-style:italic;background:rgba(255,255,255,0.05);border-radius:8px;padding:12px">...</div>
+        </div>
+
+        <!-- Upload panel -->
+        <div id="viPanelFile" style="display:none">
+            <div class="text-sm text-muted mb-16">Upload an audio file — must mention <strong>item name</strong>, <strong>quantity</strong> and <strong>price</strong>.</div>
+            <input type="file" id="viFileInput" accept="audio/*" style="width:100%;font-size:0.85rem;color:var(--text-primary);background:transparent;border:none;outline:none;margin-bottom:12px;cursor:pointer">
+            <div id="viFileStatus" style="font-size:0.8rem;min-height:16px;color:var(--text-muted);margin-bottom:12px;word-break:break-word"></div>
+            <button class="btn btn-primary w-full" id="viFileBtn" onclick="submitInventoryAudio()">
+                <i class="fas fa-upload"></i> Transcribe &amp; Parse
             </button>
         </div>
-        <div id="viTranscript" class="chat-msg system" style="min-height: 40px; font-style: italic; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;">...</div>
     </div>
-    
-    <!-- Step 2: Confirmation -->
-    <div id="viStepConfirm" style="display: none;">
-        <div class="glass-card" style="background: rgba(52,211,153,0.05); border-color: rgba(52,211,153,0.2); text-align: left; padding: 16px;">
+
+    <!-- Step 2: Confirmation / missing fields -->
+    <div id="viStepConfirm" style="display:none">
+        <div class="glass-card" style="background:rgba(52,211,153,0.05);border-color:rgba(52,211,153,0.2);text-align:left;padding:16px">
             <div class="flex items-center gap-8 mb-12">
                 <i class="fas fa-check-circle" style="color:var(--accent-green)"></i>
                 <span class="font-bold">Verify Product Details</span>
             </div>
-            <div class="flex flex-col gap-8">
-                <div class="flex justify-between"><span>Product:</span> <span id="viProdName" class="font-bold">--</span></div>
-                <div class="flex justify-between"><span>Quantity:</span> <span id="viProdQty" class="font-bold">--</span></div>
-                <div class="flex justify-between"><span>Price:</span> <span id="viProdPrice" class="font-bold">--</span></div>
+            <!-- Editable fields -->
+            <div class="flex flex-col gap-10">
+                <div class="flex justify-between items-center gap-8">
+                    <span style="min-width:70px">Product</span>
+                    <input id="viProdName" class="input-field" style="flex:1;padding:6px 10px;font-size:0.9rem" placeholder="Product name">
+                </div>
+                <div class="flex justify-between items-center gap-8">
+                    <span style="min-width:70px">Quantity</span>
+                    <input id="viProdQty" class="input-field" style="flex:1;padding:6px 10px;font-size:0.9rem" type="number" min="0" placeholder="Required">
+                </div>
+                <div class="flex justify-between items-center gap-8">
+                    <span style="min-width:70px">Price ₹</span>
+                    <input id="viProdPrice" class="input-field" style="flex:1;padding:6px 10px;font-size:0.9rem" type="number" min="0" placeholder="Required">
+                </div>
             </div>
+            <div id="viMissingMsg" style="color:var(--accent-red,#e74c3c);font-size:0.8rem;margin-top:10px;display:none"></div>
             <div class="flex gap-8 mt-20">
                 <button class="btn btn-danger flex-1" onclick="closeVoiceInventoryModal()"><i class="fas fa-times"></i> Cancel</button>
                 <button class="btn btn-secondary flex-1" onclick="resetVoiceInventory()"><i class="fas fa-rotate-left"></i> Retake</button>
-                <button class="btn btn-primary flex-1" onclick="confirmVoiceInventory()"><i class="fas fa-plus"></i> Add to Inventory</button>
+                <button class="btn btn-primary flex-1" onclick="confirmVoiceInventory()"><i class="fas fa-save"></i> Save</button>
             </div>
             <div class="text-xs text-center text-muted mt-12">
-                <i class="fas fa-microphone-lines"></i> Say <b>"Add to inventory"</b> to confirm or <b>"Cancel"</b> to exit.
+                <i class="fas fa-microphone-lines"></i> Say <b>"add to inventory"</b> to confirm or <b>"cancel"</b> to exit.
             </div>
         </div>
     </div>
+
 </div>
 </div>
 </div>
