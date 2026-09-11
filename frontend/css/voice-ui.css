@@ -1,4 +1,4 @@
-/* ========== VOICE UI STYLES — BhashaBill ==========  */
+/* ========== VOICE UI STYLES — DukaanGo ==========  */
 
 /* ===== MIC ORB ===== */
 .mic-orb-wrap {
@@ -21,13 +21,13 @@
   cursor: pointer;
   position: relative;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 0 40px rgba(79,125,248,0.3);
+  box-shadow: 0 0 40px rgba(45,106,45,0.3);
   -webkit-tap-highlight-color: transparent;
   z-index: 2;
 }
 .mic-orb:hover {
   transform: scale(1.05);
-  box-shadow: 0 0 60px rgba(79,125,248,0.4);
+  box-shadow: 0 0 60px rgba(45,106,45,0.4);
 }
 .mic-orb:active { transform: scale(0.95); }
 
@@ -39,7 +39,7 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 2px solid rgba(79,125,248,0.3);
+  border: 2px solid rgba(45,106,45,0.3);
   opacity: 0;
   transition: opacity 0.3s;
 }
@@ -52,16 +52,16 @@
   animation: micPulse 2s ease-out infinite 0.5s;
 }
 .mic-orb.listening {
-  box-shadow: 0 0 60px rgba(79,125,248,0.5), 0 0 120px rgba(155,109,255,0.2);
+  box-shadow: 0 0 60px rgba(45,106,45,0.5), 0 0 120px rgba(58,140,58,0.2);
 }
 .mic-orb.speaking {
   background: var(--gradient-2);
-  box-shadow: 0 0 60px rgba(155,109,255,0.5), 0 0 120px rgba(236,72,153,0.2);
+  box-shadow: 0 0 60px rgba(58,140,58,0.5), 0 0 120px rgba(232,93,38,0.2);
 }
 .mic-orb.speaking::before {
   opacity: 1;
   animation: micPulse 1.2s ease-out infinite;
-  border-color: rgba(155,109,255,0.3);
+  border-color: rgba(58,140,58,0.3);
 }
 .mic-orb.processing {
   background: linear-gradient(135deg, #36d6e7, #4f7df8);
@@ -126,7 +126,7 @@
 }
 .transcript-display.active {
   border-color: var(--accent-blue);
-  box-shadow: 0 0 20px rgba(79,125,248,0.1);
+  box-shadow: 0 0 20px rgba(45,106,45,0.1);
 }
 .transcript-interim {
   color: var(--text-muted);
@@ -142,9 +142,9 @@
   max-width: 600px;
   margin-top: 10px;
   padding: 10px 14px;
-  border: 1px solid rgba(155,109,255,0.35);
+  border: 1px solid rgba(58,140,58,0.35);
   border-radius: var(--radius-md);
-  background: rgba(155,109,255,0.08);
+  background: rgba(58,140,58,0.08);
   color: var(--text-primary);
   font-size: 14px;
   text-align: left;
@@ -172,7 +172,7 @@
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--border-color);
-  background: rgba(79,125,248,0.08);
+  background: rgba(45,106,45,0.08);
   color: var(--text-secondary);
   font-size: 11px;
   font-weight: 700;
@@ -256,7 +256,7 @@
 .live-bill-footer {
   padding: 16px 20px;
   border-top: 1px solid var(--border-color);
-  background: rgba(79,125,248,0.03);
+  background: rgba(45,106,45,0.03);
 }
 .live-bill-total {
   display: flex;
@@ -404,8 +404,8 @@
   font-size: 12px;
   flex-shrink: 0;
 }
-.command-log-icon.user { background: rgba(79,125,248,0.15); color: var(--accent-blue); }
-.command-log-icon.system { background: rgba(155,109,255,0.15); color: var(--accent-purple); }
+.command-log-icon.user { background: rgba(45,106,45,0.15); color: var(--accent-blue); }
+.command-log-icon.system { background: rgba(58,140,58,0.15); color: var(--accent-purple); }
 .command-log-text { font-size: 13px; }
 .command-log-time { font-size: 10px; color: var(--text-muted); }
 
