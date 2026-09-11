@@ -116,6 +116,7 @@
     }
     .portal-customer .portal-icon { background: linear-gradient(135deg, var(--green, #34d399), #059669); }
     .portal-owner .portal-icon { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+    .portal-admin .portal-icon { background: linear-gradient(135deg, #f43f5e, #e11d48); }
     
     .portal-info h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
     .portal-info p { font-size: 13px; color: var(--text-muted); }
@@ -203,6 +204,15 @@
         <div class="portal-info">
           <h3>I'm a Store Owner</h3>
           <p>Manage your inventory, orders, and shop</p>
+        </div>
+        <i class="fas fa-chevron-right portal-arrow"></i>
+      </a>
+
+      <a href="login.html" class="portal-btn portal-admin" onclick="sessionStorage.setItem('lc_login_role','admin')">
+        <div class="portal-icon"><i class="fas fa-shield-halved"></i></div>
+        <div class="portal-info">
+          <h3>Admin Panel</h3>
+          <p>System-wide administration and management</p>
         </div>
         <i class="fas fa-chevron-right portal-arrow"></i>
       </a>

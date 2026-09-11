@@ -1,4 +1,4 @@
-// ========== VOICE ENGINE — BhashaBill Voice Assistant ==========
+// ========== VOICE ENGINE — DukaanGo Voice Assistant ==========
 // Browser SpeechRecognition STT, multilingual NLU, and real-time command execution
 
 const VoiceEngine = (() => {
@@ -67,13 +67,13 @@ const VoiceEngine = (() => {
   // ========== VOCABULARY ==========
   const COMMANDS = {
     add: {
-      en: ['add', 'put', 'include', 'insert', 'give', 'add chey', 'add cheyyi', 'vesuko', 'vesey', 'petti', 'daalo', 'dalo', 'daal do'],
-      te: ['చేర్చు', 'వేయి', 'పెట్టు', 'ఇయ్యి', 'కావాలి', 'వేసుకో', 'పెట్టి', 'యాడ్ చేయి'],
-      hi: ['जोड़ो', 'डालो', 'रखो', 'देना', 'लगाओ', 'दालो', 'डाल दो']
+      en: ['add', 'put', 'include', 'insert', 'give', 'add chey', 'add cheyyi', 'vesuko', 'vesey', 'petti', 'daalo', 'dalo', 'daal do', 'jodo', 'jod do', 'jodna', 'add karo', 'add kar', 'daal', 'lagao', 'lagaao', 'cheyyandi', 'cheyyi', 'cheseyyi', 'add cheyyandi', 'veyyandi', 'veyyi'],
+      te: ['చేర్చు', 'వేయి', 'పెట్టు', 'ఇయ్యి', 'కావాలి', 'వేసుకో', 'పెట్టి', 'యాడ్ చేయి', 'వేయండి', 'పెట్టండి', 'చేర్చండి', 'యాడ్ చేయు', 'యాడ్ చేయండి', 'చేర్చు', 'కలుపు', 'కలపు'],
+      hi: ['जोड़ो', 'डालो', 'रखो', 'देना', 'लगाओ', 'दालो', 'डाल दो', 'जोड़', 'जोड़ना']
     },
     remove: {
-      en: ['remove', 'delete', 'cancel', 'drop', 'teesi', 'teesey', 'hatao'],
-      te: ['తీసెయ్యి', 'తీసేయ్', 'వద్దు', 'రద్దు', 'తీసి', 'తీసివేయి'],
+      en: ['remove', 'delete', 'cancel', 'drop', 'teesi', 'teesey', 'hatao', 'hatao', 'nikalo', 'nikaalo', 'cheyyi cancel', 'teesi veyyandi', 'teeseyyandi'],
+      te: ['తీసెయ్యి', 'తీసేయ్', 'వద్దు', 'రద్దు', 'తీసి', 'తీసివేయి', 'తీసేయండి'],
       hi: ['हटाओ', 'निकालो', 'कैंसल', 'मत रखो', 'हटा दो']
     },
     undo: {
@@ -232,11 +232,10 @@ const VoiceEngine = (() => {
   ];
 
   const NOISE_WORDS = [
-    'please', 'bhai', 'anna', 'bro', 'ra', 'the', 'a', 'of', 'and', 'also', 'dena', 'de',
+    'please', 'bhai', 'anna', 'bro', 'ra', 'the', 'a', 'of', 'also',
     'just', 'bye', 'go', 'call', 'guess', 'my', 'me', 'nd', 'then',
-    'chesko', 'chesuko', 'chesey', 'chesi',
-    'అన్నా', 'రా', 'భాయ్', 'కూడా', 'ఇయ్యి', 'కావాలి', 'చేసుకో', 'చేయి',
-    'भाई', 'भैया', 'भी', 'और', 'ज़रा', 'कृपया', 'प्लीज', 'करो', 'करना',
+    'అన్నా', 'రా', 'భాయ్', 'కూడా',
+    'भाई', 'भैया', 'भी', 'ज़रा', 'कृपया', 'प्लीज',
     'bhayya', 'ayya', 'sir', 'madam'
   ];
 
@@ -268,8 +267,8 @@ const VoiceEngine = (() => {
     'నూనె': 'fortune oil', 'ఆయిల్': 'fortune oil', 'ఫార్చ్యూన్': 'fortune oil', 'ఫార్చ్యూన్ ఆయిల్': 'fortune oil',
     'तेल': 'fortune oil', 'रिफाइंड तेल': 'fortune oil',
     // === Amul Milk ===
-    milk: 'amul milk', dudh: 'amul milk', palu: 'amul milk',
-    'పాలు': 'amul milk', 'అమూల్ పాలు': 'amul milk', 'అమూల్': 'amul milk',
+    milk: 'amul milk', dudh: 'amul milk', palu: 'amul milk', doodh: 'amul milk', paalu: 'amul milk',
+    'పాలు': 'milk', 'అమూల్ పాలు': 'amul milk', 'అమూల్': 'amul milk',
     'दूध': 'amul milk', 'अमूल दूध': 'amul milk',
     // === Amul Butter ===
     butter: 'amul butter', makhan: 'amul butter',
@@ -464,7 +463,7 @@ const VoiceEngine = (() => {
     }
 
     return normalized
-      .split(/(?:\band then\b|\bthen\b|\band\b|\bnd\b|\bplus\b|\baur\b|\bమరియు\b|\bతర్వాత\b|[,;])/gi)
+      .split(/(?:\band then\b|\bthen\b|\band\b|\bnd\b|\bplus\b|\baur\b|\bమరియు\b|\bతర్వాత\b|\bకూడా\b|[,;])/gi)
       .map((x) => x.trim())
       .filter(Boolean);
   }
@@ -662,37 +661,58 @@ const VoiceEngine = (() => {
     if (!cleaned) return null;
     if (typeof DataEngine === 'undefined') return cleaned;
 
+    // Try exact match on alias-resolved name first
     const exact = DataEngine.getItem(cleaned);
     if (exact && exact.name) return exact.name;
 
-    // Also try finding by the raw (unaliased) input — handles Telugu/Hindi script directly
+    // Try exact match on raw input (handles Telugu/Hindi script item names directly)
     const rawExact = DataEngine.getItem(rawName);
     if (rawExact && rawExact.name) return rawExact.name;
 
     if (typeof DataEngine.getInventory !== 'function') return cleaned;
     const inventory = DataEngine.getInventory() || [];
+    if (!inventory.length) return cleaned;
+
+    // Score each inventory item against all candidate forms
+    const candidates = [...new Set([cleaned, rawName, normalizeText(rawName)])].filter(Boolean);
     let best = null;
     let bestScore = 0;
 
     for (const item of inventory) {
-      const name = normalizeText(item.name || '');
-      if (!name) continue;
-      let score = similarity(cleaned, name);
-      if (name.includes(cleaned) || cleaned.includes(name)) score = Math.max(score, 0.85);
-      // Check Telugu name
+      const itemName = normalizeText(item.name || '');
+      if (!itemName) continue;
+
+      let score = 0;
+
+      for (const candidate of candidates) {
+        const s = similarity(candidate, itemName);
+        // Boost if one contains the other
+        if (itemName.includes(candidate) || candidate.includes(itemName)) {
+          score = Math.max(score, 0.88);
+        }
+        score = Math.max(score, s);
+      }
+
+      // Check Telugu nameTE field
       if (item.nameTE) {
         const nameTE = normalizeText(item.nameTE);
-        if (nameTE.includes(normalizeText(rawName)) || normalizeText(rawName).includes(nameTE)) score = Math.max(score, 0.92);
-        const teScore = similarity(normalizeText(rawName), nameTE);
-        score = Math.max(score, teScore);
+        const rawNorm = normalizeText(rawName);
+        if (nameTE === rawNorm || nameTE.includes(rawNorm) || rawNorm.includes(nameTE)) {
+          score = Math.max(score, 0.95);
+        }
+        score = Math.max(score, similarity(rawNorm, nameTE));
       }
+
       if (score > bestScore) {
         bestScore = score;
         best = item;
       }
     }
 
-    return bestScore >= 0.55 && best ? best.name : cleaned;
+    // Use a slightly lower threshold for non-Latin scripts
+    const isNonLatin = /[^\u0000-\u007F]/.test(rawName);
+    const threshold = isNonLatin ? 0.48 : 0.55;
+    return bestScore >= threshold && best ? best.name : cleaned;
   }
 
   function extractItemName(text) {
@@ -942,7 +962,8 @@ const VoiceEngine = (() => {
         }
 
         if (qty <= 0) qty = 1;
-        if (!item || (!knownItem && !hasAddVerb)) {
+        // Allow if: known item OR add verb present OR item resolved to something meaningful
+        if (!item || (!knownItem && !hasAddVerb && item === normalized)) {
           parsed = { action: 'unknown', raw };
         } else {
           parsed = { action: 'add', item, qty, quantity: qty, price, raw };

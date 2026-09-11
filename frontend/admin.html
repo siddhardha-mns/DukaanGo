@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>LocalCart — Admin Panel</title>
+<meta name="description" content="Admin dashboard for LocalCart, the voice-powered kirana shop assistant.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LocalCart">
+<meta name="theme-color" content="#07070d">
+<link rel="manifest" href="assets/manifest.json">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="stylesheet" href="css/styles.css?v=20">
+<link rel="stylesheet" href="css/voice-ui.css?v=20">
+<link rel="stylesheet" href="css/mobile.css?v=20">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  .admin-badge {
+    display:inline-flex;align-items:center;gap:4px;padding:2px 8px;
+    border-radius:12px;background:rgba(244,63,94,0.15);color:#f87171;
+    font-size:11px;font-weight:700;border:1px solid rgba(244,63,94,0.3);margin-left:8px;
+  }
+</style>
+</head>
+<body>
+<div class="app-layout">
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+<div class="sidebar-header">
+<div class="sidebar-logo">L</div>
+<span class="sidebar-brand">LocalCart</span>
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()"><i class="fas fa-chevron-left"></i></button>
+</div>
+<nav class="sidebar-nav">
+<div class="nav-section"><div class="nav-section-title">Main</div>
+<div class="nav-item active" data-section="dashboard" onclick="switchSection('dashboard',this)"><i class="fas fa-th-large"></i><span>Dashboard</span></div>
+<div class="nav-item" data-section="stores" onclick="switchSection('stores',this)"><i class="fas fa-store"></i><span>Stores</span></div>
+<div class="nav-item" data-section="users" onclick="switchSection('users',this)"><i class="fas fa-users"></i><span>Users</span></div>
+</div>
+<div class="nav-section"><div class="nav-section-title">Intelligence</div>
+<div class="nav-item" data-section="analytics" onclick="switchSection('analytics',this)"><i class="fas fa-chart-line"></i><span>Analytics</span></div>
+</div>
+<div class="nav-section"><div class="nav-section-title">System</div>
+<div class="nav-item" data-section="team" onclick="switchSection('team',this)"><i class="fas fa-user-shield"></i><span>Team & Access</span></div>
+<div class="nav-item" data-section="platform" onclick="switchSection('platform',this)"><i class="fas fa-cloud"></i><span>Platform</span></div>
+<div class="nav-item" data-section="network" onclick="switchSection('network',this)"><i class="fas fa-circle-nodes"></i><span>Local Network</span></div>
+<div class="nav-item" data-section="admin" onclick="switchSection('admin',this)"><i class="fas fa-gear"></i><span>Settings</span></div>
+</div>
+</nav>
+<div class="sidebar-footer">
+<div class="sidebar-avatar" id="sidebarUserAvatar" style="background:linear-gradient(135deg,#f43f5e,#9333ea)"><i class="fas fa-shield-halved" style="font-size:14px"></i></div>
+<div class="sidebar-user-info"><div class="sidebar-user-name" id="sidebarUserName">Admin <span class="admin-badge"><i class="fas fa-shield-halved"></i> Admin</span></div><div class="sidebar-user-role" id="sidebarUserRole">System Administrator</div></div>
+<button class="btn btn-ghost btn-sm" title="Sign out" onclick="logoutUser()" style="margin-left:auto;padding:6px 8px;font-size:13px;color:var(--text-muted)" id="logoutBtn"><i class="fas fa-right-from-bracket"></i></button>
+</div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrapper" id="mainWrapper">
+<!-- TOPBAR -->
+<header class="topbar">
+<div class="topbar-left">
+<div><div class="topbar-title" id="topbarTitle">Dashboard</div><div class="topbar-breadcrumb">System-wide administration overview</div></div>
+</div>
+<div class="topbar-search"><i class="fas fa-search"></i><input type="text" placeholder="Search anything..."><kbd>⌘K</kbd></div>
+<div class="topbar-right">
+<div class="sync-indicator sync-online" id="topbarSync"><i class="fas fa-circle" style="font-size:6px"></i> Online</div>
+
+<!-- Bell -->
+<div style="position:relative">
+  <button class="topbar-btn" id="topbarBellBtn" onclick="toggleNotifPanel(event)" title="Notifications">
+    <i class="fas fa-bell"></i><span class="notif-dot" id="topbarNotifDot"></span>
+  </button>
+  <!-- Notification Panel -->
+  <div id="notifPanel" style="display:none;position:absolute;top:calc(100% + 10px);right:0;width:320px;background:var(--bg-card,#12121e);border:1px solid rgba(255,255,255,0.1);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);z-index:9999;overflow:hidden">
+    <div style="padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between">
+      <span style="font-weight:700;font-size:14px">Notifications</span>
+      <button onclick="clearNotifs()" style="background:none;border:none;color:var(--text-muted,#888);font-size:12px;cursor:pointer">Clear all</button>
+    </div>
+    <div id="notifList" style="max-height:320px;overflow-y:auto">
+      <div class="notif-item" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;gap:12px;align-items:flex-start">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(244,63,94,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-triangle-exclamation" style="color:#f43f5e;font-size:14px"></i></div>
+        <div><div style="font-size:13px;font-weight:600">Low Stock Alert</div><div style="font-size:12px;color:var(--text-muted,#888);margin-top:2px">Amul Butter — only 3 units left</div><div style="font-size:11px;color:var(--text-muted,#888);margin-top:4px">2 min ago</div></div>
+      </div>
+      <div class="notif-item" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;gap:12px;align-items:flex-start">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(52,211,153,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-check-circle" style="color:#34d399;font-size:14px"></i></div>
+        <div><div style="font-size:13px;font-weight:600">Payment Received</div><div style="font-size:12px;color:var(--text-muted,#888);margin-top:2px">₹2,450 via UPI from Sunita K.</div><div style="font-size:11px;color:var(--text-muted,#888);margin-top:4px">15 min ago</div></div>
+      </div>
+      <div class="notif-item" style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;gap:12px;align-items:flex-start">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(79,125,248,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-bag-shopping" style="color:#4f7df8;font-size:14px"></i></div>
+        <div><div style="font-size:13px;font-weight:600">New Order #1247</div><div style="font-size:12px;color:var(--text-muted,#888);margin-top:2px">Priya S. — 4 items · ₹1,240</div><div style="font-size:11px;color:var(--text-muted,#888);margin-top:4px">2 hr ago</div></div>
+      </div>
+      <div id="notifEmpty" style="display:none;padding:28px;text-align:center;color:var(--text-muted,#888);font-size:13px">
+        <i class="fas fa-bell-slash" style="font-size:28px;margin-bottom:8px;display:block;opacity:0.4"></i> No new notifications
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fullscreen -->
+<button class="topbar-btn" id="topbarExpandBtn" onclick="toggleFullscreen()" title="Toggle fullscreen">
+  <i class="fas fa-expand" id="topbarExpandIcon"></i>
+</button>
+
+<!-- Profile Dropdown -->
+<div style="position:relative">
+  <div class="topbar-profile" id="topbarProfileBtn" onclick="toggleProfileDropdown(event)" style="cursor:pointer">
+    <div class="topbar-profile-img" id="topbarProfileImg" style="background:linear-gradient(135deg,#f43f5e,#9333ea)"><i class="fas fa-shield-halved" style="font-size:12px"></i></div>
+    <span class="topbar-profile-name" id="topbarProfileName">Admin</span>
+    <i class="fas fa-chevron-down" id="topbarChevron" style="font-size:10px;color:var(--text-muted,#888);transition:transform 0.2s"></i>
+  </div>
+  <!-- Profile Dropdown Menu -->
+  <div id="profileDropdown" style="display:none;position:absolute;top:calc(100% + 10px);right:0;width:230px;background:var(--bg-card,#12121e);border:1px solid rgba(255,255,255,0.1);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);z-index:9999;overflow:hidden">
+    <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.07)">
+      <div style="font-weight:700;font-size:14px" id="dropUserName">Admin <span class="admin-badge"><i class="fas fa-shield-halved"></i> Admin</span></div>
+      <div style="font-size:12px;color:var(--text-muted,#888);margin-top:2px">System Administrator</div>
+    </div>
+    <div style="padding:6px">
+      <div onclick="switchSection('admin',document.querySelector('[data-section=admin]'));closeDropdowns()" class="profile-dd-item"><i class="fas fa-gear"></i> Settings</div>
+      <div onclick="switchSection('admin',document.querySelector('[data-section=admin]'));closeDropdowns()" class="profile-dd-item"><i class="fas fa-user"></i> My Account</div>
+      <div onclick="switchSection('platform',document.querySelector('[data-section=platform]'));closeDropdowns()" class="profile-dd-item"><i class="fas fa-cloud"></i> Platform</div>
+      <div style="border-top:1px solid rgba(255,255,255,0.07);margin:4px 0"></div>
+      <div onclick="logoutUser()" class="profile-dd-item" style="color:#f87171"><i class="fas fa-right-from-bracket"></i> Sign Out</div>
+    </div>
+  </div>
+</div>
+</div>
+</header>
+
+<!-- MOBILE HEADER -->
+<div class="mobile-header">
+<div><div class="mobile-header-title" id="mobileTitle">LocalCart</div></div>
+<div class="mobile-header-actions">
+<div class="sync-indicator sync-online" style="font-size:10px;padding:4px 8px"><i class="fas fa-circle" style="font-size:5px"></i> Online</div>
+<button class="mobile-header-btn"><i class="fas fa-search"></i></button>
+<button class="mobile-header-btn"><i class="fas fa-bell"></i><span class="notif-dot"></span></button>
+<div class="mobile-header-btn" style="background:linear-gradient(135deg,#f43f5e,#9333ea);color:#fff;font-size:11px;font-weight:700"><i class="fas fa-shield-halved" style="font-size:11px"></i></div>
+</div>
+</div>
+
+<!-- CONTENT -->
+<main class="content-area" id="contentArea">
+
+<!-- ========== 1. DASHBOARD (PLATFORM) ========== -->
+<div class="section active" id="sec-dashboard">
+<div class="section-header"><div><div class="section-title">Platform Dashboard</div><div class="section-subtitle">System-wide overview across all stores</div></div><button class="btn btn-primary"><i class="fas fa-download"></i> Export Report</button></div>
+<div class="grid-4 mb-24">
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(244,63,94,0.12);color:#f43f5e"><i class="fas fa-store"></i></div><span class="stat-card-change up"><i class="fas fa-arrow-up"></i>2</span></div><div class="stat-card-value">12</div><div class="stat-card-label">Total Stores</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(79,125,248,0.12);color:var(--accent-blue)"><i class="fas fa-users"></i></div><span class="stat-card-change up"><i class="fas fa-arrow-up"></i>18.2%</span></div><div class="stat-card-value">3,847</div><div class="stat-card-label">Total Users</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(155,109,255,0.12);color:var(--accent-purple)"><i class="fas fa-bag-shopping"></i></div><span class="stat-card-change up"><i class="fas fa-arrow-up"></i>11.7%</span></div><div class="stat-card-value">2,483</div><div class="stat-card-label">Total Orders (Today)</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(52,211,153,0.12);color:var(--accent-green)"><i class="fas fa-indian-rupee-sign"></i></div><span class="stat-card-change up"><i class="fas fa-arrow-up"></i>14.3%</span></div><div class="stat-card-value">₹8.4L</div><div class="stat-card-label">Platform Revenue (Today)</div></div>
+</div>
+<div class="grid-3 mb-24">
+<div class="glass-card" style="grid-column:span 2"><div class="flex items-center justify-between mb-16"><span class="font-bold">Revenue Overview (All Stores)</span><div class="tabs"><button class="tab active">Week</button><button class="tab">Month</button><button class="tab">Year</button></div></div><div class="chart-container"><canvas id="revenueChart" height="220"></canvas></div></div>
+<div class="glass-card"><div class="font-bold mb-16">Top Performing Stores</div>
+<div class="flex flex-col gap-12">
+<div class="flex items-center gap-12"><div class="avatar" style="background:rgba(79,125,248,0.12);color:var(--accent-blue)">RG</div><div class="flex-1"><div class="text-sm font-bold">Rajesh General Store</div><div class="text-xs text-muted">₹1.2L today • 156 orders</div></div><span class="badge badge-success">Active</span></div>
+<div class="flex items-center gap-12"><div class="avatar" style="background:rgba(155,109,255,0.12);color:var(--accent-purple)">FV</div><div class="flex-1"><div class="text-sm font-bold">Fresh Veggie Corner</div><div class="text-xs text-muted">₹85K today • 98 orders</div></div><span class="badge badge-success">Active</span></div>
+<div class="flex items-center gap-12"><div class="avatar" style="background:rgba(52,211,153,0.12);color:var(--accent-green)">MH</div><div class="flex-1"><div class="text-sm font-bold">Meera Home Bakery</div><div class="text-xs text-muted">₹62K today • 74 orders</div></div><span class="badge badge-success">Active</span></div>
+<div class="flex items-center gap-12"><div class="avatar" style="background:rgba(245,158,11,0.12);color:var(--accent-orange)">HP</div><div class="flex-1"><div class="text-sm font-bold">Health Plus Pharmacy</div><div class="text-xs text-muted">₹48K today • 52 orders</div></div><span class="badge badge-success">Active</span></div>
+<div class="flex items-center gap-12"><div class="avatar" style="background:rgba(236,72,153,0.12);color:var(--accent-pink)">SS</div><div class="flex-1"><div class="text-sm font-bold">Sharma Stationery</div><div class="text-xs text-muted">₹31K today • 34 orders</div></div><span class="badge badge-info">Idle</span></div>
+</div></div>
+</div>
+<div class="grid-2">
+<div class="glass-card"><div class="font-bold mb-16">System Health</div>
+<div class="flex flex-col gap-8">
+<div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--border-color)"><div class="flex items-center gap-12"><i class="fas fa-server" style="color:var(--accent-green)"></i><div><div class="text-sm">Backend API</div><div class="text-xs text-muted">127.0.0.1:5005</div></div></div><span class="badge badge-success">Online</span></div>
+<div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--border-color)"><div class="flex items-center gap-12"><i class="fas fa-database" style="color:var(--accent-green)"></i><div><div class="text-sm">SQLite Database</div><div class="text-xs text-muted">localcart.db</div></div></div><span class="badge badge-success">Healthy</span></div>
+<div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--border-color)"><div class="flex items-center gap-12"><i class="fas fa-brain" style="color:var(--accent-orange)"></i><div><div class="text-sm">Sarvam AI API</div><div class="text-xs text-muted">STT / TTS / Chat</div></div></div><span class="badge badge-warning">Disabled</span></div>
+<div class="flex items-center justify-between" style="padding:10px 0"><div class="flex items-center gap-12"><i class="fas fa-shield-halved" style="color:var(--accent-blue)"></i><div><div class="text-sm">Auth System</div><div class="text-xs text-muted">JWT Mock Mode</div></div></div><span class="badge badge-info">Mock</span></div>
+</div></div>
+<div class="glass-card"><div class="font-bold mb-16">Recent Platform Activity</div>
+<div class="flex flex-col">
+<div class="activity-item"><div class="activity-dot" style="background:var(--accent-green)"></div><div><div class="activity-text">New store registered: Sharma Stationery</div><div class="activity-time">10 minutes ago</div></div></div>
+<div class="activity-item"><div class="activity-dot" style="background:var(--accent-blue)"></div><div><div class="activity-text">2,483 orders processed across all stores</div><div class="activity-time">Today</div></div></div>
+<div class="activity-item"><div class="activity-dot" style="background:var(--accent-orange)"></div><div><div class="activity-text">Backend restarted — autoreload triggered</div><div class="activity-time">1 hour ago</div></div></div>
+<div class="activity-item"><div class="activity-dot" style="background:var(--accent-purple)"></div><div><div class="activity-text">User role updated: pooja → Manager</div><div class="activity-time">3 hours ago</div></div></div>
+</div></div>
+</div>
+</div>
+
+<!-- ========== 2. STORES ========== -->
+<div class="section" id="sec-stores">
+<div class="section-header"><div><div class="section-title">Store Management</div><div class="section-subtitle">View and manage all registered stores</div></div><button class="btn btn-primary"><i class="fas fa-plus"></i> Add Store</button></div>
+<div class="grid-4 mb-24">
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(52,211,153,0.12);color:var(--accent-green)"><i class="fas fa-store"></i></div></div><div class="stat-card-value">12</div><div class="stat-card-label">Total Stores</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(79,125,248,0.12);color:var(--accent-blue)"><i class="fas fa-circle-check"></i></div></div><div class="stat-card-value">10</div><div class="stat-card-label">Active</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(245,158,11,0.12);color:var(--accent-orange)"><i class="fas fa-pause-circle"></i></div></div><div class="stat-card-value">2</div><div class="stat-card-label">Inactive</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(155,109,255,0.12);color:var(--accent-purple)"><i class="fas fa-indian-rupee-sign"></i></div></div><div class="stat-card-value">₹8.4L</div><div class="stat-card-label">Total Revenue (Today)</div></div>
+</div>
+<div class="glass-card">
+<div class="flex items-center justify-between mb-16">
+<div class="tabs"><button class="tab active">All Stores</button><button class="tab">Active</button><button class="tab">Inactive</button></div>
+<div class="flex gap-8">
+<div class="topbar-search" style="width:220px"><i class="fas fa-search"></i><input placeholder="Search stores..."></div>
+</div>
+</div>
+<table class="data-table"><thead><tr><th>Store</th><th>Owner</th><th>Location</th><th>Orders</th><th>Revenue</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-1);width:32px;height:32px;font-size:11px">RG</div><div><div class="font-bold">Rajesh General Store</div><div class="text-xs text-muted">Grocery & Daily Needs</div></div></div></td><td class="text-muted">Rajesh K.</td><td class="text-muted">Sector 12, Bengaluru</td><td class="font-bold">156</td><td class="font-bold">₹1.2L</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-2);width:32px;height:32px;font-size:11px">FV</div><div><div class="font-bold">Fresh Veggie Corner</div><div class="text-xs text-muted">Vegetables & Fruits</div></div></div></td><td class="text-muted">Sunita K.</td><td class="text-muted">Koramangala, Bengaluru</td><td class="font-bold">98</td><td class="font-bold">₹85K</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-3);width:32px;height:32px;font-size:11px">MH</div><div><div class="font-bold">Meera Home Bakery</div><div class="text-xs text-muted">Bakery & Confectionery</div></div></div></td><td class="text-muted">Meera R.</td><td class="text-muted">HSR Layout, Bengaluru</td><td class="font-bold">74</td><td class="font-bold">₹62K</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-4);width:32px;height:32px;font-size:11px">HP</div><div><div class="font-bold">Health Plus Pharmacy</div><div class="text-xs text-muted">Pharmacy & Wellness</div></div></div></td><td class="text-muted">Amit M.</td><td class="text-muted">Indiranagar, Bengaluru</td><td class="font-bold">52</td><td class="font-bold">₹48K</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:linear-gradient(135deg,var(--accent-orange),var(--accent-red));width:32px;height:32px;font-size:11px">SS</div><div><div class="font-bold">Sharma Stationery</div><div class="text-xs text-muted">Stationery & Office</div></div></div></td><td class="text-muted">Vikram S.</td><td class="text-muted">Whitefield, Bengaluru</td><td class="font-bold">34</td><td class="font-bold">₹31K</td><td><span class="badge badge-info">Idle</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:linear-gradient(135deg,var(--accent-cyan),var(--accent-blue));width:32px;height:32px;font-size:11px">KM</div><div><div class="font-bold">Kiran Mobiles</div><div class="text-xs text-muted">Mobile Accessories</div></div></div></td><td class="text-muted">Kiran P.</td><td class="text-muted">Electronic City, Bengaluru</td><td class="font-bold">18</td><td class="font-bold">₹15K</td><td><span class="badge badge-warning">Inactive</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
+</tbody></table>
+</div>
+</div>
+
+<!-- ========== 3. USERS ========== -->
+<div class="section" id="sec-users">
+<div class="section-header"><div><div class="section-title">User Management</div><div class="section-subtitle">Manage all platform users and roles</div></div><button class="btn btn-primary"><i class="fas fa-user-plus"></i> Add User</button></div>
+<div class="grid-4 mb-24">
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(79,125,248,0.12);color:var(--accent-blue)"><i class="fas fa-users"></i></div></div><div class="stat-card-value">3,847</div><div class="stat-card-label">Total Users</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(155,109,255,0.12);color:var(--accent-purple)"><i class="fas fa-user-shield"></i></div></div><div class="stat-card-value">14</div><div class="stat-card-label">Owners</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(52,211,153,0.12);color:var(--accent-green)"><i class="fas fa-user-check"></i></div></div><div class="stat-card-value">28</div><div class="stat-card-label">Staff</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(245,158,11,0.12);color:var(--accent-orange)"><i class="fas fa-user"></i></div></div><div class="stat-card-value">3,805</div><div class="stat-card-label">Customers</div></div>
+</div>
+<div class="glass-card">
+<div class="flex items-center justify-between mb-16">
+<div class="tabs"><button class="tab active">All Users</button><button class="tab">Owners</button><button class="tab">Staff</button><button class="tab">Customers</button></div>
+<div class="flex gap-8">
+<div class="topbar-search" style="width:220px"><i class="fas fa-search"></i><input placeholder="Search users..."></div>
+</div>
+</div>
+<table class="data-table"><thead><tr><th>User</th><th>Role</th><th>Store</th><th>Last Active</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-1);width:32px;height:32px;font-size:11px">RK</div><div><div class="font-bold">Rajesh Kumar</div><div class="text-xs text-muted">rajesh@localcart.in</div></div></div></td><td><span class="badge badge-purple">Owner</span></td><td class="text-muted">Rajesh General Store</td><td class="text-muted">Active now</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm">Edit</button></td></tr>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-2);width:32px;height:32px;font-size:11px">SK</div><div><div class="font-bold">Sunita K.</div><div class="text-xs text-muted">sunita@localcart.in</div></div></div></td><td><span class="badge badge-purple">Owner</span></td><td class="text-muted">Fresh Veggie Corner</td><td class="text-muted">5 min ago</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm">Edit</button></td></tr>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-3);width:32px;height:32px;font-size:11px">MR</div><div><div class="font-bold">Meera R.</div><div class="text-xs text-muted">meera@localcart.in</div></div></div></td><td><span class="badge badge-purple">Owner</span></td><td class="text-muted">Meera Home Bakery</td><td class="text-muted">12 min ago</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm">Edit</button></td></tr>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-4);width:32px;height:32px;font-size:11px">PM</div><div><div class="font-bold">Pooja M.</div><div class="text-xs text-muted">pooja@localcart.in</div></div></div></td><td><span class="badge badge-info">Staff</span></td><td class="text-muted">Rajesh General Store</td><td class="text-muted">2h ago</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm">Edit</button></td></tr>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:linear-gradient(135deg,var(--accent-orange),var(--accent-red));width:32px;height:32px;font-size:11px">AK</div><div><div class="font-bold">Arun K.</div><div class="text-xs text-muted">arun@localcart.in</div></div></div></td><td><span class="badge badge-success">Staff</span></td><td class="text-muted">Rajesh General Store</td><td class="text-muted">5h ago</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm">Edit</button></td></tr>
+<tr><td><div class="flex items-center gap-12"><div class="avatar" style="background:linear-gradient(135deg,var(--accent-cyan),var(--accent-blue));width:32px;height:32px;font-size:11px">PS</div><div><div class="font-bold">Priya S.</div><div class="text-xs text-muted">priya@email.com</div></div></div></td><td><span class="badge" style="background:rgba(255,255,255,0.08);color:var(--text-muted)">Customer</span></td><td class="text-muted">—</td><td class="text-muted">1 hr ago</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm">Edit</button></td></tr>
+</tbody></table>
+</div>
+</div>
+
+<!-- ========== 4. ANALYTICS (PLATFORM) ========== -->
+<div class="section" id="sec-analytics">
+<div class="section-header"><div><div class="section-title">Platform Analytics</div><div class="section-subtitle">Platform-level metrics across all stores</div></div>
+<div class="tabs"><button class="tab active">Daily</button><button class="tab">Weekly</button><button class="tab">Monthly</button></div></div>
+<div class="grid-3 mb-24">
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(52,211,153,0.12);color:var(--accent-green)"><i class="fas fa-arrow-trend-up"></i></div><span class="stat-card-change up"><i class="fas fa-arrow-up"></i>18%</span></div><div class="stat-card-value">₹48.2L</div><div class="stat-card-label">Platform Revenue (Month)</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(79,125,248,0.12);color:var(--accent-blue)"><i class="fas fa-store"></i></div><span class="stat-card-change up"><i class="fas fa-arrow-up"></i>2</span></div><div class="stat-card-value">12</div><div class="stat-card-label">Active Stores</div></div>
+<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(244,63,94,0.12);color:var(--accent-red)"><i class="fas fa-user-plus"></i></div><span class="stat-card-change up"><i class="fas fa-arrow-up"></i>24%</span></div><div class="stat-card-value">342</div><div class="stat-card-label">New Users (Month)</div></div>
+</div>
+<div class="grid-2 mb-24">
+<div class="glass-card"><div class="font-bold mb-16">Sales Trend (All Stores)</div><div class="chart-container"><canvas id="salesChart" height="250"></canvas></div></div>
+<div class="glass-card"><div class="font-bold mb-16">Store Performance Comparison</div><div class="chart-container"><canvas id="categoryChart" height="250"></canvas></div></div>
+</div>
+<div class="glass-card">
+<div class="font-bold mb-16">Store Rankings</div>
+<table class="data-table"><thead><tr><th>#</th><th>Store</th><th>Revenue (Month)</th><th>Orders</th><th>Growth</th></tr></thead>
+<tbody>
+<tr><td class="font-bold">1</td><td class="font-bold">Rajesh General Store</td><td class="font-bold">₹12.4L</td><td>4,280</td><td><span class="badge badge-success">+22%</span></td></tr>
+<tr><td class="font-bold">2</td><td class="font-bold">Fresh Veggie Corner</td><td class="font-bold">₹8.8L</td><td>3,150</td><td><span class="badge badge-success">+15%</span></td></tr>
+<tr><td class="font-bold">3</td><td class="font-bold">Meera Home Bakery</td><td class="font-bold">₹6.5L</td><td>2,420</td><td><span class="badge badge-success">+12%</span></td></tr>
+<tr><td class="font-bold">4</td><td class="font-bold">Health Plus Pharmacy</td><td class="font-bold">₹5.2L</td><td>1,890</td><td><span class="badge badge-warning">+3%</span></td></tr>
+<tr><td class="font-bold">5</td><td class="font-bold">Sharma Stationery</td><td class="font-bold">₹3.8L</td><td>1,240</td><td><span class="badge badge-danger">-5%</span></td></tr>
+</tbody></table>
+</div>
+</div>
+
+<!-- SECTIONS 9-15 LOADED FROM sections2.html -->
+<div id="sections2Container"></div>
+
+</main>
+</div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-bottom-nav" id="mobileNav">
+<div class="mobile-nav-item active" onclick="mobileNav('dashboard',this)" data-section="dashboard"><i class="fas fa-th-large"></i><span>Home</span></div>
+<div class="mobile-nav-item" onclick="mobileNav('stores',this)" data-section="stores"><i class="fas fa-store"></i><span>Stores</span></div>
+<div class="mobile-nav-item" onclick="mobileNav('users',this)" data-section="users"><i class="fas fa-users"></i><span>Users</span></div>
+<div class="mobile-nav-item" onclick="mobileNav('analytics',this)" data-section="analytics"><i class="fas fa-chart-line"></i><span>Analytics</span></div>
+<div class="mobile-nav-item" data-section="more" onclick="toggleMoreDrawer()"><i class="fas fa-grid-2"></i><span>More</span></div>
+</nav>
+
+<!-- MOBILE MORE DRAWER -->
+<div class="mobile-overlay" id="moreOverlay" onclick="closeMoreDrawer()"></div>
+<div class="mobile-more-drawer" id="moreDrawer">
+<div class="mobile-more-drawer-title">All Modules</div>
+<div class="mobile-more-grid">
+<div class="mobile-more-item" onclick="mobileGoTo('team')"><i class="fas fa-user-shield" style="color:var(--accent-purple)"></i><span>Team & Access</span></div>
+<div class="mobile-more-item" onclick="mobileGoTo('platform')"><i class="fas fa-cloud" style="color:var(--accent-blue)"></i><span>Platform</span></div>
+<div class="mobile-more-item" onclick="mobileGoTo('network')"><i class="fas fa-circle-nodes" style="color:var(--accent-cyan)"></i><span>Local Network</span></div>
+<div class="mobile-more-item" onclick="mobileGoTo('admin')"><i class="fas fa-gear" style="color:var(--text-secondary)"></i><span>Settings</span></div>
+</div>
+</div>
+
+<!-- Auth guard + global API helper -->
+<script>
+(function() {
+  const TOKEN_KEY = 'lc_auth_token';
+  const USER_KEY  = 'lc_auth_user';
+  const BACKEND   = 'http://127.0.0.1:5005';
+
+  function getToken() {
+    return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || null;
+  }
+
+  const token = getToken();
+  if (!token) {
+    window.location.replace('login.html');
+  }
+
+  function initUserInfo() {
+    const raw = sessionStorage.getItem(USER_KEY) || localStorage.getItem(USER_KEY);
+    if (!raw) return;
+    try {
+      const user = JSON.parse(raw);
+      const nameEl = document.getElementById('sidebarUserName');
+      const avatarEl = document.getElementById('sidebarUserAvatar');
+      if (nameEl && user.username) {
+        nameEl.innerHTML = user.username.charAt(0).toUpperCase() + user.username.slice(1) + ' <span class="admin-badge"><i class="fas fa-shield-halved"></i> Admin</span>';
+      }
+      if (avatarEl && user.username) {
+        avatarEl.textContent = user.username.slice(0,2).toUpperCase();
+      }
+    } catch (_) {}
+  }
+
+  window.logoutUser = function() {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    window.location.replace('login.html');
+  };
+
+  window.apiCall = async function(path, method = 'GET', body = null) {
+    const t = getToken();
+    const opts = {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+    };
+    if (t && t !== 'offline-demo-token') {
+      opts.headers['Authorization'] = 'Bearer ' + t;
+    }
+    if (body && method !== 'GET') opts.body = JSON.stringify(body);
+    const res = await fetch(BACKEND + path, opts);
+    const json = await res.json().catch(() => ({}));
+    return { ok: res.ok && json.ok !== false, status: res.status, data: json.data, message: json.message };
+  };
+
+  document.addEventListener('DOMContentLoaded', initUserInfo);
+})();
+</script>
+<script src="js/lang-detect.js?v=1"></script>
+<script src="js/data-engine.js?v=20"></script>
+<script src="js/admin-sections.js?v=20"></script>
+<script src="js/app.js?v=20"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  const host = (window.location && window.location.hostname) || '';
+  const isLocalHost = /^(localhost|127\.0\.0\.1|::1)$/i.test(host);
+  if (isLocalHost) {
+    navigator.serviceWorker.getRegistrations()
+      .then(regs => Promise.all(regs.map(r => r.unregister())))
+      .then(() => ('caches' in window ? caches.keys() : Promise.resolve([])))
+      .then(keys => Promise.all((keys || []).map(k => caches.delete(k))))
+      .then(() => console.log('SW disabled on localhost for clean dev assets'))
+      .catch(e => console.log('SW cleanup failed:', e));
+  } else {
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => {
+      console.log('SW registered:', r.scope);
+    }).catch(e => console.log('SW failed:', e));
+  }
+}
+</script>
+
+<style>
+  .profile-dd-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+    border-radius: 8px; font-size: 13.5px; font-weight: 500; cursor: pointer;
+    color: var(--text-primary, #e8e8f0); transition: background 0.15s;
+  }
+  .profile-dd-item:hover { background: rgba(255,255,255,0.07); }
+  .profile-dd-item i { width: 16px; text-align: center; font-size: 13px; color: var(--text-muted, #888); }
+  .notif-item { transition: background 0.15s; cursor: default; }
+  .notif-item:hover { background: rgba(255,255,255,0.04); }
+  .chat-box { scrollbar-width: thin; scrollbar-color: var(--accent-blue) transparent; }
+  .chat-msg { margin-bottom: 12px; padding: 10px; border-radius: 8px; max-width: 85%; line-height: 1.4; font-size: 14px; }
+  .chat-msg.system { background: rgba(255,255,255,0.05); align-self: flex-start; }
+  .chat-msg.user { background: rgba(79,125,248,0.15); align-self: flex-end; color: var(--accent-blue); font-weight: 500; }
+  .chat-msg.loading { font-style: italic; opacity: 0.7; }
+  .chat-msg.error { color: var(--accent-red); background: rgba(244,63,94,0.1); }
+</style>
+
+<script>
+(function() {
+  let notifOpen = false;
+  let profileOpen = false;
+  let notifCount = 3;
+
+  function syncTopbarUser() {
+    const USER_KEY = 'lc_auth_user';
+    const raw = sessionStorage.getItem(USER_KEY) || localStorage.getItem(USER_KEY);
+    if (!raw) return;
+    try {
+      const user = JSON.parse(raw);
+      const name = user.username ? user.username.charAt(0).toUpperCase() + user.username.slice(1) : 'Admin';
+      const initials = (user.username || 'AD').slice(0, 2).toUpperCase();
+      const nameEl = document.getElementById('topbarProfileName');
+      const imgEl = document.getElementById('topbarProfileImg');
+      const dropEl = document.getElementById('dropUserName');
+      if (nameEl) nameEl.textContent = name;
+      if (imgEl) imgEl.textContent = initials;
+      if (dropEl) dropEl.innerHTML = name + ' <span class="admin-badge"><i class="fas fa-shield-halved"></i> Admin</span>';
+    } catch (_) {}
+  }
+
+  window.closeDropdowns = function() { setNotif(false); setProfile(false); };
+
+  function setNotif(open) {
+    notifOpen = open;
+    const panel = document.getElementById('notifPanel');
+    if (panel) panel.style.display = open ? 'block' : 'none';
+  }
+
+  function setProfile(open) {
+    profileOpen = open;
+    const dd = document.getElementById('profileDropdown');
+    const chv = document.getElementById('topbarChevron');
+    if (dd) dd.style.display = open ? 'block' : 'none';
+    if (chv) chv.style.transform = open ? 'rotate(180deg)' : 'rotate(0)';
+  }
+
+  window.toggleNotifPanel = function(e) {
+    if (e) e.stopPropagation();
+    const next = !notifOpen;
+    closeDropdowns();
+    setNotif(next);
+  };
+
+  window.clearNotifs = function() {
+    notifCount = 0;
+    const list = document.getElementById('notifList');
+    const empty = document.getElementById('notifEmpty');
+    const dot = document.getElementById('topbarNotifDot');
+    if (list) list.querySelectorAll('.notif-item').forEach(n => n.remove());
+    if (empty) empty.style.display = 'block';
+    if (dot) dot.style.display = 'none';
+  };
+
+  window.toggleFullscreen = function() {
+    const icon = document.getElementById('topbarExpandIcon');
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      if (icon) icon.className = 'fas fa-compress';
+    } else {
+      document.exitFullscreen().catch(() => {});
+      if (icon) icon.className = 'fas fa-expand';
+    }
+  };
+
+  document.addEventListener('fullscreenchange', () => {
+    const icon = document.getElementById('topbarExpandIcon');
+    if (icon) icon.className = document.fullscreenElement ? 'fas fa-compress' : 'fas fa-expand';
+  });
+
+  window.toggleProfileDropdown = function(e) {
+    if (e) e.stopPropagation();
+    const next = !profileOpen;
+    closeDropdowns();
+    setProfile(next);
+  };
+
+  document.addEventListener('click', function(e) {
+    const notifBtn = document.getElementById('topbarBellBtn');
+    const notifPanel = document.getElementById('notifPanel');
+    const profileBtn = document.getElementById('topbarProfileBtn');
+    const profileDD = document.getElementById('profileDropdown');
+    const clickedInNotif = (notifBtn && notifBtn.contains(e.target)) || (notifPanel && notifPanel.contains(e.target));
+    const clickedInProfile = (profileBtn && profileBtn.contains(e.target)) || (profileDD && profileDD.contains(e.target));
+    if (!clickedInNotif && notifOpen) setNotif(false);
+    if (!clickedInProfile && profileOpen) setProfile(false);
+  });
+
+  document.addEventListener('DOMContentLoaded', syncTopbarUser);
+})();
+</script>
+<script src="js/buttons.js?v=1"></script>
+<script src="js/filters.js?v=1"></script>
+</body>
+</html>

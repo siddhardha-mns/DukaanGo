@@ -253,6 +253,22 @@
       <form id="loginForm" autocomplete="on" novalidate>
 
         <div class="form-group">
+          <label class="form-label">Login As</label>
+          <div class="flex gap-8">
+            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s" id="roleOwnerWrap">
+              <input type="radio" name="loginRole" value="owner" checked style="accent-color:var(--accent)" />
+              <i class="fas fa-store" style="color:var(--accent);font-size:13px"></i>
+              <span style="font-size:13px;font-weight:600">Store Owner</span>
+            </label>
+            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s" id="roleAdminWrap">
+              <input type="radio" name="loginRole" value="admin" style="accent-color:#f43f5e" />
+              <i class="fas fa-shield-halved" style="color:#f43f5e;font-size:13px"></i>
+              <span style="font-size:13px;font-weight:600">Admin</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
           <label class="form-label" for="loginUsername">Username</label>
           <div class="input-wrap">
             <i class="fas fa-user input-icon"></i>
@@ -289,9 +305,9 @@
       <div class="divider">Quick Access</div>
       <div class="demo-box" onclick="fillDemo()">
         <div class="demo-box-title"><i class="fas fa-bolt"></i> Demo Credentials — click to fill</div>
-        <div class="demo-creds">
-          <div class="demo-cred"><span>Username</span><strong>admin</strong></div>
-          <div class="demo-cred"><span>Password</span><strong>admin123</strong></div>
+        <div class="demo-creds" id="demoCredsDisplay">
+          <div class="demo-cred"><span>Username</span><strong id="demoUsername">owner</strong></div>
+          <div class="demo-cred"><span>Password</span><strong id="demoPassword">owner123</strong></div>
         </div>
       </div>
     </div>
@@ -369,7 +385,10 @@
 
   /* ── Already logged in? ── */
   if (sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY)) {
-    window.location.replace('dashboard.html');
+    try {
+      const u = JSON.parse(sessionStorage.getItem(USER_KEY) || localStorage.getItem(USER_KEY) || '{}');
+      window.location.replace(u.role === 'Admin' ? 'admin.html' : 'owner.html');
+    } catch(_) { window.location.replace('owner.html'); }
   }
 
   /* ── Backend health ── */
@@ -455,15 +474,38 @@
   const savedUser = localStorage.getItem('lc_remembered_user');
   if (savedUser) { document.getElementById('loginUsername').value = savedUser; document.getElementById('rememberMe').checked = true; }
 
-  /* ── Fill demo creds ── */
+  /* ── Auto-select admin role if coming from admin portal ── */
+  if (sessionStorage.getItem('lc_login_role') === 'admin') {
+    const adminRadio = document.querySelector('input[name="loginRole"][value="admin"]');
+    if (adminRadio) { adminRadio.checked = true; }
+    sessionStorage.removeItem('lc_login_role');
+  }
+
+  /* ── Demo creds per role ── */
+  const DEMO_CREDS = {
+    owner: { username: 'owner', password: 'owner123' },
+    admin: { username: 'admin', password: 'admin123' },
+  };
+
   function fillDemo() {
-    document.getElementById('loginUsername').value = 'admin';
-    document.getElementById('loginPassword').value = 'admin123';
+    const selectedRole = document.querySelector('input[name="loginRole"]:checked')?.value || 'owner';
+    const creds = DEMO_CREDS[selectedRole] || DEMO_CREDS.owner;
+    document.getElementById('loginUsername').value = creds.username;
+    document.getElementById('loginPassword').value = creds.password;
     hideAlert();
     const box = document.querySelector('.demo-box');
     box.style.background = 'rgba(79,125,248,0.22)';
     setTimeout(() => box.style.background = '', 500);
   }
+
+  /* ── Update demo display when role changes ── */
+  document.querySelectorAll('input[name="loginRole"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      const creds = DEMO_CREDS[this.value] || DEMO_CREDS.owner;
+      document.getElementById('demoUsername').textContent = creds.username;
+      document.getElementById('demoPassword').textContent = creds.password;
+    });
+  });
 
   /* ── Auth token store helper ── */
   function storeAuth(token, user, remember) {
@@ -499,25 +541,31 @@
     btn.disabled = true; btn.classList.add('loading');
     btn.querySelector('.btn-text').textContent = 'Signing in…';
 
+    const selectedRole = document.querySelector('input[name="loginRole"]:checked')?.value || 'owner';
+    const destPage = selectedRole === 'admin' ? 'admin.html' : 'owner.html';
+
     try {
-      const { ok, body } = await apiPost('/login', { username, password });
+      const { ok, body } = await apiPost('/login', { username, password, role: selectedRole });
       if (ok && body.ok) {
         const { token, user } = body.data;
+        user.role = user.role || (selectedRole === 'admin' ? 'Admin' : 'Store Owner');
         storeAuth(token, user, remember);
         if (remember) localStorage.setItem('lc_remembered_user', username);
         else localStorage.removeItem('lc_remembered_user');
         showAlert(`Welcome back, ${user.username}! Redirecting…`, 'success');
-        setTimeout(() => window.location.replace('dashboard.html'), 900);
+        setTimeout(() => window.location.replace(destPage), 900);
       } else {
         showAlert(body.message || 'Invalid credentials. Please try again.');
         document.getElementById('loginPassword').value = '';
       }
     } catch (err) {
-      // Offline fallback
-      if (username === 'admin' && password === 'admin123') {
-        storeAuth('offline-demo-token', { id:1, username:'admin' }, remember);
+      // Offline fallback — accept both sets of credentials
+      const offlineCreds = DEMO_CREDS[selectedRole] || DEMO_CREDS.owner;
+      if (username === offlineCreds.username && password === offlineCreds.password) {
+        const fallbackUser = { id:1, username: offlineCreds.username === 'admin' ? 'Admin' : 'Rajesh Kumar', role: selectedRole === 'admin' ? 'Admin' : 'Store Owner' };
+        storeAuth('offline-demo-token', fallbackUser, remember);
         showAlert('Backend offline — continuing in local mode.', 'success');
-        setTimeout(() => window.location.replace('dashboard.html'), 900);
+        setTimeout(() => window.location.replace(destPage), 900);
       } else {
         showAlert('Cannot reach server. Check backend is running on port 5005.');
       }
@@ -547,13 +595,17 @@
     btn.disabled = true; btn.classList.add('loading');
     btn.querySelector('.btn-text').textContent = 'Creating account…';
 
+    const regRole = document.querySelector('input[name="loginRole"]:checked')?.value || 'owner';
+    const regDest = regRole === 'admin' ? 'admin.html' : 'owner.html';
+
     try {
       const { ok, status, body } = await apiPost('/register', { username, password, confirmPassword });
       if (ok && body.ok) {
         const { token, user } = body.data;
+        user.role = regRole === 'admin' ? 'Admin' : 'Store Owner';
         storeAuth(token, user, false);
         showAlert(`Account created! Welcome, ${user.username} 🎉`, 'success');
-        setTimeout(() => window.location.replace('dashboard.html'), 1000);
+        setTimeout(() => window.location.replace(regDest), 1000);
       } else {
         showAlert(body.message || (status === 409 ? 'Username already taken.' : 'Registration failed.'));
       }
@@ -568,7 +620,9 @@
   /* ── Forgot hint ── */
   function forgotHint(e) {
     e.preventDefault();
-    showAlert('Contact your admin to reset your password. Default: admin / admin123');
+    const selectedRole = document.querySelector('input[name="loginRole"]:checked')?.value || 'owner';
+    const creds = DEMO_CREDS[selectedRole] || DEMO_CREDS.owner;
+    showAlert(`Contact your admin to reset your password. Default: ${creds.username} / ${creds.password}`);
   }
 
   /* ── Enter key flow ── */

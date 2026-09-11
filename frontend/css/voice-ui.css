@@ -137,6 +137,27 @@
   font-size: 14px;
 }
 
+.translation-display {
+  width: 100%;
+  max-width: 600px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border: 1px solid rgba(155,109,255,0.35);
+  border-radius: var(--radius-md);
+  background: rgba(155,109,255,0.08);
+  color: var(--text-primary);
+  font-size: 14px;
+  text-align: left;
+}
+.translation-display.interim { opacity: 0.72; }
+.translation-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent-purple);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .voice-debug-strip {
   display: flex;
   flex-wrap: wrap;

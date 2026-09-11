@@ -64,6 +64,16 @@
       <button class="voice-quick-btn" onclick="showDiscountModal()"><i class="fas fa-percent"></i> Discount</button>
       <button class="voice-quick-btn danger" onclick="VoiceService.manualCommand('clear')"><i class="fas fa-trash"></i> Clear</button>
     </div>
+
+    <!-- Audio File Upload -->
+    <div class="mt-16" style="background:var(--glass-bg,rgba(255,255,255,0.06));border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:var(--radius-md,10px);padding:14px 16px;">
+      <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;margin-bottom:10px;"><i class="fas fa-file-audio" style="margin-right:6px;"></i>UPLOAD AUDIO TO BILL</div>
+      <input type="file" id="audioUploadInput" accept="audio/*" style="width:100%;font-size:0.85rem;color:var(--text-primary);background:transparent;border:none;outline:none;margin-bottom:10px;cursor:pointer;">
+      <div id="audioUploadStatus" style="font-size:0.8rem;min-height:16px;color:var(--text-muted);margin-bottom:10px;word-break:break-word;"></div>
+      <button class="btn btn-primary w-full" id="audioUploadBtn" onclick="submitAudioUpload()">
+        <i class="fas fa-upload"></i> Transcribe &amp; Bill
+      </button>
+    </div>
   </div>
 
   <!-- Live Bill Column -->
@@ -126,7 +136,7 @@
       </div>
       <div class="bill-receipt-footer">
         <div>Thank you for shopping with us!</div>
-        <div style="margin-top:4px">Powered by BhashaBill</div>
+        <div style="margin-top:4px">Powered by DukaanGo</div>
       </div>
     </div>
   </div>
@@ -172,7 +182,7 @@
       <div class="flex items-center justify-between"><div><div class="text-sm font-bold">Speech Engine</div><div class="text-xs text-muted">Browser-native SpeechRecognition (Chrome/Edge)</div></div>
         <span class="badge badge-success">Active</span>
       </div>
-      <div class="flex items-center justify-between"><div><div class="text-sm font-bold">Wake Word</div><div class="text-xs text-muted">Optional "Hey BhashaBill" activation</div></div><div class="toggle" id="wakeWordToggle" onclick="toggleWakeWord(this)"></div></div>
+      <div class="flex items-center justify-between"><div><div class="text-sm font-bold">Wake Word</div><div class="text-xs text-muted">Optional "Hey DukaanGo" activation</div></div><div class="toggle" id="wakeWordToggle" onclick="toggleWakeWord(this)"></div></div>
     </div>
   </div>
 </div>
@@ -1058,13 +1068,81 @@
       msg += `\n*Low Stock:*\n`;
       lowStock.slice(0, 5).forEach(item => { msg += ` ${item.name}  ${item.qty} left\n`; });
     }
-    msg += `\nPowered by BhashaBill`;
+    msg += `\nPowered by DukaanGo`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
   // Auto-run on load
   setTimeout(() => { if (typeof refreshInsights === 'function') refreshInsights(); }, 500);
   setTimeout(() => { if (typeof runMiningEngine === 'function') runMiningEngine(); }, 600);
+
+  // ========== AUDIO UPLOAD → SARVAM STT → BILLING ==========
+  window.handleAudioUpload = function(input) {
+    // no-op, kept for compatibility
+  };
+
+  window.submitAudioUpload = async function() {
+    const input = document.getElementById('audioUploadInput');
+    const file = input && input.files[0];
+    const btn = document.getElementById('audioUploadBtn');
+    const status = document.getElementById('audioUploadStatus');
+
+    if (!file) {
+      status.style.color = 'var(--accent-red, #e74c3c)';
+      status.textContent = 'Please choose an audio file first.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcribing…';
+    status.style.color = 'var(--text-muted)';
+    status.textContent = 'Sending to Sarvam…';
+
+    try {
+      const langSelect = document.getElementById('voiceLangSelectHeader');
+      const langCode = langSelect ? langSelect.value : 'en-IN';
+
+      const form = new FormData();
+      form.append('file', file, file.name);
+      form.append('language_code', langCode);
+
+      const backendUrl = (typeof VoiceService !== 'undefined' && VoiceService.getState)
+        ? VoiceService.getState().backendUrl
+        : 'http://127.0.0.1:5005';
+
+      const res = await fetch(`${backendUrl}/api/sarvam/asr`, { method: 'POST', body: form });
+      const json = await res.json();
+
+      if (!json.ok) throw new Error(json.message || 'ASR failed');
+
+      // Log raw response for debugging
+      console.log('[ASR raw response]', JSON.stringify(json.data));
+
+      const d = json.data || {};
+      const transcript = d.transcript || d.text || d.transcription ||
+        (Array.isArray(d.chunks) ? d.chunks.map(c => c.text || c.transcript || '').join(' ') : '') ||
+        (Array.isArray(d.segments) ? d.segments.map(c => c.text || '').join(' ') : '');
+
+      if (!transcript || !transcript.trim()) throw new Error(`No speech detected. Raw: ${JSON.stringify(d)}`);
+
+      status.style.color = 'var(--accent-green)';
+      status.textContent = `Heard: "${transcript}"`;
+
+      if (typeof showToast === 'function') showToast(`Heard: "${transcript}"`, 'info');
+      VoiceService.manualCommand(transcript.trim());
+
+      // reset
+      input.value = '';
+
+    } catch (err) {
+      status.style.color = 'var(--accent-red, #e74c3c)';
+      status.textContent = `Error: ${err.message}`;
+      if (typeof showToast === 'function') showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-upload"></i> Transcribe &amp; Bill';
+    }
+  };
 
 })();
 

@@ -1,6 +1,8 @@
 // ========== NAVIGATION ==========
 const sectionTitles = {
   dashboard: ['Dashboard', 'Overview of your store performance'],
+  stores: ['Store Management', 'View and manage all registered stores'],
+  users: ['User Management', 'Manage all platform users and roles'],
   store: ['Store Setup', 'Manage your shop profile and storefront'],
   inventory: ['Inventory', 'Track and manage your product inventory'],
   orders: ['Orders', 'Track and manage all incoming orders'],
@@ -786,35 +788,49 @@ async function processInventoryTranscript(transcript) {
   VoiceService.stopListening();
   
   document.getElementById('viStatus').textContent = 'Parsing details...';
+  document.getElementById('viTranscript').textContent = '"' + transcript + '"';
   
   try {
-    // 1. STT via Sarvam proxy
-    const sttRes = await fetch('http://127.0.0.1:5005/api/sarvam/asr', {
-      method: 'POST',
-      body: formData,
-      headers: { 'api-subscription-key': 'placeholder' } // Not actually needed as backend uses its own env
-    });
-    const sttData = await sttRes.json();
-    const transcript = (sttData.data && sttData.data.transcript) || '';
-    document.getElementById('viTranscript').textContent = '"' + transcript + '"';
+    // Detect language from transcript
+    const detectedLang = (typeof LangDetect !== 'undefined') 
+      ? LangDetect.detectCommand(transcript) 
+      : 'en';
     
-    if (!transcript) {
-      document.getElementById('viStatus').textContent = 'No speech detected. Please try again.';
-      resetVoiceInventory();
-      return;
+    // Use Sarvam Chat NLU to parse product details (online)
+    // Fallback to local parsing if offline or Sarvam unavailable
+    let parsed = null;
+    
+    if (navigator.onLine) {
+      try {
+        const langInstruction = detectedLang === 'te' 
+          ? 'The input is in Telugu. Extract product name, quantity, and price.' 
+          : detectedLang === 'hi' 
+            ? 'The input is in Hindi. Extract product name, quantity, and price.'
+            : 'Extract product name, quantity, and price.';
+        
+        const nluPayload = {
+          model: "sarvam-105b",
+          reasoning_effort: null,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: `${langInstruction} Return JSON only: {name: string, qty: number, price: number}.` },
+            { role: "user", content: transcript }
+          ]
+        };
+        const nluRes = await window.apiCall('/api/sarvam/chat', 'POST', nluPayload);
+        if (nluRes.ok && nluRes.data && nluRes.data.choices) {
+          const aiMessage = nluRes.data.choices[0].message.content;
+          parsed = JSON.parse(aiMessage.match(/\{.*\}/s)[0]);
+        }
+      } catch (e) {
+        console.warn('Sarvam NLU failed, using local parser:', e);
+      }
     }
-
-    // STT is already done by browser, now use Sarvam Chat (NLU) to parse
-    const nluPayload = {
-      model: "sarvam-m",
-      messages: [
-        { role: "system", content: "Extract product name, quantity, and price from the text. Return JSON only: {name: string, qty: number, price: number}." },
-        { role: "user", content: transcript }
-      ]
-    };
-    const nluRes = await window.apiCall('/api/sarvam/chat', 'POST', nluPayload);
-    const aiMessage = nluRes.data.choices[0].message.content;
-    const parsed = JSON.parse(aiMessage.match(/\{.*\}/s)[0]);
+    
+    // Fallback: local regex-based parser
+    if (!parsed) {
+      parsed = parseInventoryLocal(transcript);
+    }
     
     // 3. Preview
     document.getElementById('viProdName').textContent = parsed.name || '--';
@@ -822,12 +838,14 @@ async function processInventoryTranscript(transcript) {
     document.getElementById('viProdPrice').textContent = parsed.price || '--';
     
     window.viCurrentParsed = parsed;
+    window.viDetectedLang = detectedLang;
     document.getElementById('viStepListening').style.display = 'none';
     document.getElementById('viStepConfirm').style.display = 'block';
     document.getElementById('viStatus').textContent = 'Product Detected';
     
     // Auto-start listening for confirmation if VoiceService is available
     if (typeof VoiceService !== 'undefined') {
+      const langName = detectedLang === 'te' ? 'Telugu' : detectedLang === 'hi' ? 'Hindi' : 'English';
       VoiceService.speak(`Detected ${parsed.qty || ''} ${parsed.name || 'product'} at ${parsed.price || ''} rupees. Say add to inventory to confirm.`);
       setTimeout(() => {
         if (document.getElementById('voiceInventoryModal').classList.contains('show')) {
@@ -839,6 +857,50 @@ async function processInventoryTranscript(transcript) {
     document.getElementById('viStatus').textContent = 'Error processing voice. Try manual add.';
     console.error(err);
   }
+}
+
+/**
+ * Local regex-based parser for inventory items (offline fallback)
+ */
+function parseInventoryLocal(text) {
+  if (!text) return { name: '', qty: 10, price: 0 };
+  
+  const normalized = text.toLowerCase().trim();
+  
+  // Extract numbers
+  const numbers = [];
+  const numWords = { 'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10,
+    'twenty':20,'thirty':30,'fifty':50,'hundred':100 };
+  
+  // Find digit numbers
+  const digitMatches = normalized.match(/\d+/g);
+  if (digitMatches) numbers.push(...digitMatches.map(Number));
+  
+  // Find word numbers
+  for (const [word, val] of Object.entries(numWords)) {
+    if (normalized.includes(word)) numbers.push(val);
+  }
+  
+  // Extract item name: remove numbers, price words, common filler words
+  let name = normalized
+    .replace(/\d+/g, '')
+    .replace(/at\s*₹?\d+/g, '')
+    .replace(/rs\.?\s*\d+/g, '')
+    .replace(/price\s*\d+/g, '')
+    .replace(/add|product|new|item|inventory|chey|vesuko|daalo|jodo/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Apply item aliases if available
+  if (typeof applyItemAliases === 'function') {
+    name = applyItemAliases(name);
+  }
+  
+  return {
+    name: name || 'Unknown Product',
+    qty: numbers.length > 0 ? numbers[0] : 10,
+    price: numbers.length > 1 ? numbers[1] : 0
+  };
 }
 
 window.confirmVoiceInventory = async function() {
