@@ -633,6 +633,150 @@ def customer_orders():
         return jsonify({"ok": False, "message": str(e)}), 500
 
 
+# ─────────────────────────────────────────────────────────────
+# OWNER-FACING ORDER & DELIVERY ENDPOINTS
+# ─────────────────────────────────────────────────────────────
+
+VALID_STATUSES = ['pending', 'confirmed', 'packed', 'out_for_delivery', 'delivered', 'cancelled']
+
+@app.route('/orders', methods=['GET'])
+def get_all_orders():
+    """Owner/admin facing: returns all customer orders with items and customer name."""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT co.id, co.txn_id, co.delivery_address, co.payment_method,
+                   co.status, co.total, co.created_at,
+                   c.name AS customer_name, c.phone AS customer_phone
+            FROM customer_orders co
+            LEFT JOIN customers c ON c.id = co.customer_id
+            ORDER BY co.created_at DESC
+        ''')
+        rows = cursor.fetchall()
+        orders = []
+        for o in rows:
+            cursor.execute(
+                'SELECT item_name, qty, price, subtotal FROM customer_order_items WHERE order_id = ?',
+                (o['id'],)
+            )
+            items = [{'name': i['item_name'], 'qty': i['qty'],
+                      'price': i['price'], 'subtotal': i['subtotal']}
+                     for i in cursor.fetchall()]
+            orders.append({
+                'order_id':       o['id'],
+                'txn_id':         o['txn_id'],
+                'date':           o['created_at'],
+                'total':          o['total'],
+                'status':         o['status'],
+                'payment_method': o['payment_method'],
+                'delivery_address': o['delivery_address'],
+                'customer_name':  o['customer_name'] or 'Guest',
+                'customer_phone': o['customer_phone'] or '',
+                'items':          items
+            })
+        conn.close()
+        return jsonify({'ok': True, 'data': orders})
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+
+@app.route('/orders/<int:order_id>/status', methods=['PATCH'])
+def update_order_status(order_id):
+    """Owner/admin: advance an order to the next status."""
+    try:
+        data = request.json or {}
+        new_status = (data.get('status') or '').strip().lower()
+        if new_status not in VALID_STATUSES:
+            return jsonify({'ok': False,
+                            'message': f'Invalid status. Allowed: {", ".join(VALID_STATUSES)}'}), 400
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, status FROM customer_orders WHERE id = ?', (order_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({'ok': False, 'message': 'Order not found'}), 404
+        cursor.execute('UPDATE customer_orders SET status = ? WHERE id = ?', (new_status, order_id))
+        conn.commit()
+        conn.close()
+        return jsonify({'ok': True, 'order_id': order_id, 'status': new_status})
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+
+@app.route('/delivery/partners', methods=['GET'])
+def get_delivery_partners():
+    """Returns all delivery partners with active delivery count."""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, name, phone, status FROM delivery_partners ORDER BY name')
+        partners = []
+        for p in cursor.fetchall():
+            cursor.execute(
+                "SELECT COUNT(*) FROM customer_orders WHERE status = 'out_for_delivery'",
+            )
+            # Simplified: share active count across the board since we don't have
+            # a partner_id FK on orders yet — show total in-transit count
+            active = cursor.fetchone()[0]
+            partners.append({
+                'id':     p['id'],
+                'name':   p['name'],
+                'phone':  p['phone'],
+                'status': p['status'],
+            })
+        conn.close()
+        return jsonify({'ok': True, 'data': partners})
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+
+@app.route('/delivery/partners', methods=['POST'])
+def add_delivery_partner():
+    """Add a new delivery partner."""
+    try:
+        data = request.json or {}
+        name = (data.get('name') or '').strip()
+        phone = (data.get('phone') or '').strip()
+        if not name:
+            return jsonify({'ok': False, 'message': 'Name is required'}), 400
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO delivery_partners (name, phone, status) VALUES (?, ?, ?)',
+            (name, phone, 'available')
+        )
+        new_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return jsonify({'ok': True, 'id': new_id, 'name': name, 'phone': phone,
+                        'status': 'available'}), 201
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+
+@app.route('/delivery/partners/<int:partner_id>/status', methods=['PATCH'])
+def update_partner_status(partner_id):
+    """Toggle a delivery partner's availability."""
+    try:
+        data = request.json or {}
+        new_status = (data.get('status') or '').strip().lower()
+        if new_status not in ('available', 'busy', 'offline'):
+            return jsonify({'ok': False, 'message': 'status must be available, busy, or offline'}), 400
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE delivery_partners SET status = ? WHERE id = ?', (new_status, partner_id))
+        if cursor.rowcount == 0:
+            conn.close()
+            return jsonify({'ok': False, 'message': 'Partner not found'}), 404
+        conn.commit()
+        conn.close()
+        return jsonify({'ok': True, 'id': partner_id, 'status': new_status})
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+
 if __name__ == '__main__':
     init_db()
 

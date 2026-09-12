@@ -267,63 +267,113 @@
 
 <!-- ========== 4. ORDERS ========== -->
 <div class="section" id="sec-orders">
-<div class="section-header"><div><div class="section-title">Order Management</div><div class="section-subtitle">Track and manage all incoming orders</div></div><button class="btn btn-primary"><i class="fas fa-plus"></i> New Order</button></div>
-<div class="pipeline mb-24">
-<div class="pipeline-stage active" style="border-top:3px solid var(--accent-orange)"><div class="pipeline-stage-count" style="color:var(--accent-orange)">8</div><div class="pipeline-stage-label">Pending</div></div>
-<div class="pipeline-stage" style="border-top:3px solid var(--accent-blue)"><div class="pipeline-stage-count" style="color:var(--accent-blue)">5</div><div class="pipeline-stage-label">Packed</div></div>
-<div class="pipeline-stage" style="border-top:3px solid var(--accent-purple)"><div class="pipeline-stage-count" style="color:var(--accent-purple)">3</div><div class="pipeline-stage-label">Out for Delivery</div></div>
-<div class="pipeline-stage" style="border-top:3px solid var(--accent-green)"><div class="pipeline-stage-count" style="color:var(--accent-green)">140</div><div class="pipeline-stage-label">Delivered</div></div>
+<div class="section-header">
+  <div><div class="section-title">Order Management</div><div class="section-subtitle">Live customer orders — click a row to manage</div></div>
+  <div class="flex gap-8">
+    <button class="btn btn-secondary btn-sm" id="ordersRefreshBtn" onclick="window.DeliveryModule && window.DeliveryModule.refresh()"><i class="fas fa-rotate-right"></i> Refresh</button>
+    <button class="btn btn-primary" onclick="if(typeof switchSection==='function') switchSection('voicebill',document.querySelector('[data-section=voicebill]'))"><i class="fas fa-plus"></i> New Order</button>
+  </div>
+</div>
+<!-- Pipeline counters — filled by DeliveryModule -->
+<div class="pipeline mb-24" id="orderPipeline">
+  <div class="pipeline-stage" id="pipe-pending" style="border-top:3px solid var(--accent-orange)"><div class="pipeline-stage-count" style="color:var(--accent-orange)" id="pipeCount-pending">—</div><div class="pipeline-stage-label">Pending</div></div>
+  <div class="pipeline-stage" id="pipe-confirmed" style="border-top:3px solid var(--accent-cyan)"><div class="pipeline-stage-count" style="color:var(--accent-cyan)" id="pipeCount-confirmed">—</div><div class="pipeline-stage-label">Confirmed</div></div>
+  <div class="pipeline-stage" id="pipe-packed" style="border-top:3px solid var(--accent-blue)"><div class="pipeline-stage-count" style="color:var(--accent-blue)" id="pipeCount-packed">—</div><div class="pipeline-stage-label">Packed</div></div>
+  <div class="pipeline-stage" id="pipe-out_for_delivery" style="border-top:3px solid var(--accent-purple)"><div class="pipeline-stage-count" style="color:var(--accent-purple)" id="pipeCount-out_for_delivery">—</div><div class="pipeline-stage-label">Out for Delivery</div></div>
+  <div class="pipeline-stage" id="pipe-delivered" style="border-top:3px solid var(--accent-green)"><div class="pipeline-stage-count" style="color:var(--accent-green)" id="pipeCount-delivered">—</div><div class="pipeline-stage-label">Delivered</div></div>
 </div>
 <div class="glass-card">
-<div class="flex items-center justify-between mb-16">
-  <div class="tabs" id="orderTabs">
-    <button class="tab active" data-order-source="all">All Orders</button>
-    <button class="tab" data-order-source="whatsapp">WhatsApp</button>
-    <button class="tab" data-order-source="manual">Manual</button>
-    <button class="tab" data-order-source="online">Online</button>
-  </div>
-  <div class="flex gap-8">
+  <div class="flex items-center justify-between mb-16">
+    <div class="tabs" id="orderStatusTabs">
+      <button class="tab active" data-order-status="all">All</button>
+      <button class="tab" data-order-status="pending">Pending</button>
+      <button class="tab" data-order-status="confirmed">Confirmed</button>
+      <button class="tab" data-order-status="packed">Packed</button>
+      <button class="tab" data-order-status="out_for_delivery">In Transit</button>
+      <button class="tab" data-order-status="delivered">Delivered</button>
+    </div>
     <div class="topbar-search" style="width:200px"><i class="fas fa-search"></i><input id="orderSearchInput" placeholder="Search orders..."></div>
   </div>
-</div>
-<table class="data-table"><thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Source</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead>
-<tbody id="orderTbody">
-<tr data-source="whatsapp"><td class="font-bold">#1247</td><td><div class="flex items-center gap-8"><div class="avatar" style="background:var(--gradient-1);width:28px;height:28px;font-size:10px">PS</div>Priya S.</div></td><td>4 items</td><td class="font-bold">₹1,240</td><td><span class="badge badge-success"><i class="fab fa-whatsapp"></i> WhatsApp</span></td><td><span class="badge badge-danger"><i class="fas fa-fire"></i> Urgent</span></td><td><span class="badge badge-warning">Pending</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
-<tr data-source="online"><td class="font-bold">#1246</td><td><div class="flex items-center gap-8"><div class="avatar" style="background:var(--gradient-2);width:28px;height:28px;font-size:10px">AM</div>Amit M.</div></td><td>2 items</td><td class="font-bold">₹580</td><td><span class="badge badge-info"><i class="fas fa-globe"></i> Online</span></td><td><span class="badge badge-info">Normal</span></td><td><span class="badge badge-info">Packed</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
-<tr data-source="manual"><td class="font-bold">#1245</td><td><div class="flex items-center gap-8"><div class="avatar" style="background:var(--gradient-3);width:28px;height:28px;font-size:10px">SK</div>Sunita K.</div></td><td>7 items</td><td class="font-bold">₹2,450</td><td><span class="badge badge-purple"><i class="fas fa-pen"></i> Manual</span></td><td><span class="badge badge-info">Normal</span></td><td><span class="badge badge-purple">Out for Delivery</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
-<tr data-source="whatsapp"><td class="font-bold">#1244</td><td><div class="flex items-center gap-8"><div class="avatar" style="background:var(--gradient-4);width:28px;height:28px;font-size:10px">RV</div>Ravi V.</div></td><td>3 items</td><td class="font-bold">₹890</td><td><span class="badge badge-success"><i class="fab fa-whatsapp"></i> WhatsApp</span></td><td><span class="badge badge-warning">High</span></td><td><span class="badge badge-success">Delivered</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
-<tr data-source="online"><td class="font-bold">#1243</td><td><div class="flex items-center gap-8"><div class="avatar" style="background:var(--gradient-1);width:28px;height:28px;font-size:10px">NK</div>Neha K.</div></td><td>5 items</td><td class="font-bold">₹1,750</td><td><span class="badge badge-info"><i class="fas fa-globe"></i> Online</span></td><td><span class="badge badge-info">Normal</span></td><td><span class="badge badge-success">Delivered</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
-<tr data-source="manual"><td class="font-bold">#1242</td><td><div class="flex items-center gap-8"><div class="avatar" style="background:var(--gradient-2);width:28px;height:28px;font-size:10px">DM</div>Deepak M.</div></td><td>1 item</td><td class="font-bold">₹199</td><td><span class="badge badge-purple"><i class="fas fa-pen"></i> Manual</span></td><td><span class="badge badge-info">Normal</span></td><td><span class="badge badge-info">Packed</span></td><td><button class="btn btn-secondary btn-sm">View</button></td></tr>
-</tbody></table>
-<div id="orderEmptyState" style="display:none;text-align:center;padding:40px;color:var(--text-muted,#888)"><i class="fab fa-whatsapp" style="font-size:36px;margin-bottom:12px;display:block;opacity:0.35"></i><div id="orderEmptyMsg">No orders from this source</div></div>
+  <table class="data-table"><thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+  <tbody id="orderTbody"></tbody></table>
+  <div id="orderEmptyState" style="display:none;text-align:center;padding:48px 40px;color:var(--text-muted,#888)">
+    <i class="fas fa-clipboard-list" style="font-size:36px;margin-bottom:12px;display:block;opacity:0.3"></i>
+    <div id="orderEmptyMsg">No customer orders yet. Orders placed from the customer portal will appear here.</div>
+  </div>
+  <div id="orderLoadingState" style="text-align:center;padding:48px 40px;color:var(--text-muted,#888)">
+    <i class="fas fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.5"></i>
+    <div class="text-xs">Loading orders…</div>
+  </div>
 </div>
 </div>
 
 <!-- ========== 5. DELIVERY ========== -->
 <div class="section" id="sec-delivery">
-<div class="section-header"><div><div class="section-title">Delivery Management</div><div class="section-subtitle">Manage deliveries, partners and routes</div></div><button class="btn btn-primary"><i class="fas fa-plus"></i> Add Partner</button></div>
+<div class="section-header">
+  <div><div class="section-title">Delivery Management</div><div class="section-subtitle">Live delivery queue and partner roster</div></div>
+  <button class="btn btn-primary" id="addPartnerBtn"><i class="fas fa-plus"></i> Add Partner</button>
+</div>
+
+<!-- Stat cards — filled live -->
 <div class="grid-3 mb-24">
-<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(52,211,153,0.12);color:var(--accent-green)"><i class="fas fa-check-circle"></i></div></div><div class="stat-card-value">28</div><div class="stat-card-label">Delivered Today</div></div>
-<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(79,125,248,0.12);color:var(--accent-blue)"><i class="fas fa-clock"></i></div></div><div class="stat-card-value">3</div><div class="stat-card-label">In Transit</div></div>
-<div class="stat-card"><div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(155,109,255,0.12);color:var(--accent-purple)"><i class="fas fa-motorcycle"></i></div></div><div class="stat-card-value">5</div><div class="stat-card-label">Active Partners</div></div>
+  <div class="stat-card">
+    <div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(52,211,153,0.12);color:var(--accent-green)"><i class="fas fa-check-circle"></i></div></div>
+    <div class="stat-card-value" id="dlv-stat-delivered">—</div>
+    <div class="stat-card-label">Delivered Today</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(155,109,255,0.12);color:var(--accent-purple)"><i class="fas fa-truck-fast"></i></div></div>
+    <div class="stat-card-value" id="dlv-stat-transit">—</div>
+    <div class="stat-card-label">In Transit</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-header"><div class="stat-card-icon" style="background:rgba(79,125,248,0.12);color:var(--accent-blue)"><i class="fas fa-motorcycle"></i></div></div>
+    <div class="stat-card-value" id="dlv-stat-partners">—</div>
+    <div class="stat-card-label">Available Partners</div>
+  </div>
 </div>
+
 <div class="grid-2 mb-24">
-<div class="glass-card"><div class="font-bold mb-16">Route Map</div><div class="map-placeholder"><div style="position:relative;z-index:1;text-align:center"><i class="fas fa-map-marked-alt" style="font-size:48px;color:var(--accent-blue);display:block;margin-bottom:8px"></i><div>Interactive map with live delivery routes</div><div class="text-xs text-muted mt-4">3 active deliveries being tracked</div></div></div></div>
-<div class="glass-card"><div class="font-bold mb-16">Delivery Partners</div>
-<div class="flex flex-col gap-12">
-<div class="flex items-center justify-between" style="padding:12px;background:var(--bg-glass);border-radius:var(--radius-md)"><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-1)">S</div><div><div class="text-sm font-bold">Suresh P.</div><div class="text-xs text-muted">2 active deliveries</div></div></div><span class="badge badge-success">Active</span></div>
-<div class="flex items-center justify-between" style="padding:12px;background:var(--bg-glass);border-radius:var(--radius-md)"><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-2)">M</div><div><div class="text-sm font-bold">Mohan K.</div><div class="text-xs text-muted">1 active delivery</div></div></div><span class="badge badge-success">Active</span></div>
-<div class="flex items-center justify-between" style="padding:12px;background:var(--bg-glass);border-radius:var(--radius-md)"><div class="flex items-center gap-12"><div class="avatar" style="background:var(--gradient-3)">V</div><div><div class="text-sm font-bold">Vijay R.</div><div class="text-xs text-muted">Available</div></div></div><span class="badge badge-info">Free</span></div>
-</div></div>
+  <!-- Active deliveries queue -->
+  <div class="glass-card">
+    <div class="flex items-center justify-between mb-16">
+      <span class="font-bold">Active Deliveries</span>
+      <span class="badge badge-info" id="dlv-active-count">0 orders</span>
+    </div>
+    <div id="dlvActiveList" style="display:flex;flex-direction:column;gap:10px">
+      <div style="text-align:center;padding:32px;color:var(--text-muted,#888)">
+        <i class="fas fa-spinner fa-spin" style="font-size:20px;opacity:0.4"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Partners roster -->
+  <div class="glass-card">
+    <div class="flex items-center justify-between mb-16">
+      <span class="font-bold">Delivery Partners</span>
+      <span class="text-xs text-muted" id="dlv-partners-subtitle">Loading…</span>
+    </div>
+    <div id="dlvPartnersList" style="display:flex;flex-direction:column;gap:10px">
+      <div style="text-align:center;padding:32px;color:var(--text-muted,#888)">
+        <i class="fas fa-spinner fa-spin" style="font-size:20px;opacity:0.4"></i>
+      </div>
+    </div>
+  </div>
 </div>
-<div class="glass-card"><div class="font-bold mb-16">Delivery Timeline — Order #1245</div>
-<div class="timeline">
-<div class="timeline-item completed"><div class="timeline-dot"></div><div><div class="text-sm font-bold">Order Confirmed</div><div class="text-xs text-muted">Today, 2:30 PM</div></div></div>
-<div class="timeline-item completed"><div class="timeline-dot"></div><div><div class="text-sm font-bold">Packed & Ready</div><div class="text-xs text-muted">Today, 3:00 PM</div></div></div>
-<div class="timeline-item completed"><div class="timeline-dot"></div><div><div class="text-sm font-bold">Picked up by Suresh P.</div><div class="text-xs text-muted">Today, 3:15 PM</div></div></div>
-<div class="timeline-item"><div class="timeline-dot"></div><div><div class="text-sm font-bold">Out for Delivery</div><div class="text-xs text-muted">ETA: 3:45 PM</div></div></div>
-<div class="timeline-item"><div class="timeline-dot"></div><div><div class="text-sm font-bold">Delivered</div><div class="text-xs text-muted">—</div></div></div>
-</div></div>
+
+<!-- Pending orders awaiting action -->
+<div class="glass-card">
+  <div class="flex items-center justify-between mb-16">
+    <span class="font-bold">Orders Awaiting Action</span>
+    <span class="badge badge-warning" id="dlv-pending-count">0 pending</span>
+  </div>
+  <table class="data-table"><thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Address</th><th>Time</th><th>Next Action</th></tr></thead>
+  <tbody id="dlvPendingTbody"></tbody></table>
+  <div id="dlvPendingEmpty" style="display:none;text-align:center;padding:32px;color:var(--text-muted,#888)">
+    <i class="fas fa-check-circle" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.3;color:var(--accent-green)"></i>
+    <div class="text-xs">All caught up — no orders waiting.</div>
+  </div>
+</div>
 </div>
 
 <!-- ========== 6. BILLING ========== -->

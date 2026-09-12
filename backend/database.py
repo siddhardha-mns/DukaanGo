@@ -98,6 +98,29 @@ def init_db():
         )
     ''')
 
+    # Delivery Partners Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS delivery_partners (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phone TEXT,
+            status TEXT DEFAULT 'available',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Seed default delivery partners if none exist
+    cursor.execute('SELECT COUNT(*) FROM delivery_partners')
+    if cursor.fetchone()[0] == 0:
+        cursor.executemany(
+            'INSERT INTO delivery_partners (name, phone, status) VALUES (?, ?, ?)',
+            [
+                ('Suresh P.', '9876543210', 'available'),
+                ('Mohan K.', '9876543211', 'available'),
+                ('Vijay R.', '9876543212', 'available'),
+            ]
+        )
+
     # Insert default data if inventory is empty
     cursor.execute('SELECT COUNT(*) FROM inventory')
     if cursor.fetchone()[0] == 0:
