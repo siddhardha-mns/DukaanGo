@@ -322,6 +322,11 @@ const DataEngine = (() => {
             syncWithServer();
           }, 500);
 
+          // Fire low-stock notifications for items that may have dropped below threshold
+          if (typeof window.NotifEngine !== 'undefined') {
+            setTimeout(() => window.NotifEngine.notifyAfterBill(txn.items), 600);
+          }
+
           return { success: true, txn };
         }
       }
@@ -344,6 +349,11 @@ const DataEngine = (() => {
 
     currentBill = { items: [], discount: 0, discountType: 'percent', customerName: '' };
     undoStack = [];
+
+    // Fire low-stock notifications for items that may have dropped below threshold
+    if (typeof window.NotifEngine !== 'undefined') {
+      setTimeout(() => window.NotifEngine.notifyAfterBill(txn.items), 300);
+    }
 
     return { success: true, txn };
   }

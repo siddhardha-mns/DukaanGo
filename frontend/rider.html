@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>DukaanGo — Rider Partner</title>
+<meta name="description" content="Rider Partner dashboard for DukaanGo.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#4f7df8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<!-- Leaflet Map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+<style>
+  :root {
+    --primary: #4f7df8;
+    --primary-dark: #3a62d4;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --font: 'Inter', sans-serif;
+  }
+  
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; padding-bottom: 70px; }
+  
+  /* Topbar */
+  .topbar { background: var(--primary); color: white; padding: 16px 20px; position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+  .topbar-title { font-size: 18px; font-weight: 700; }
+  .user-info { font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .logout-btn { background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; }
+  
+  /* Main Content */
+  .container { padding: 16px; max-width: 600px; margin: 0 auto; }
+  
+  /* Sections */
+  .section { display: none; animation: fadeIn 0.3s; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+  
+  /* Cards */
+  .order-card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+  .order-header { display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; }
+  .order-id { font-weight: 700; font-size: 15px; color: var(--primary); }
+  .order-status { font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; }
+  .status-ready { background: #e0e7ff; color: #4338ca; }
+  .status-out_for_delivery { background: #fef3c7; color: #b45309; }
+  .status-delivered { background: #d1fae5; color: #047857; }
+  .order-detail { font-size: 14px; margin-bottom: 6px; color: var(--text-muted); display: flex; gap: 8px; align-items: flex-start; }
+  .order-detail i { margin-top: 3px; color: var(--primary); width: 16px; text-align: center; }
+  
+  .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; font-family: var(--font); margin-top: 12px; }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:active { background: var(--primary-dark); }
+  .btn-success { background: var(--success); color: white; }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  
+  /* Map & Camera Container */
+  .media-container { width: 100%; height: 200px; background: #e2e8f0; border-radius: 8px; margin: 12px 0; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; }
+  #map { width: 100%; height: 100%; }
+  
+  .photo-preview { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .camera-btn-wrapper { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); color: white; cursor: pointer; }
+  .camera-btn-wrapper i { font-size: 32px; margin-bottom: 8px; }
+  
+  /* Empty States */
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+  .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+  
+  /* Earnings */
+  .earnings-hero { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; padding: 30px 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(79,125,248,0.3); }
+  .earnings-hero .amount { font-size: 36px; font-weight: 800; margin: 8px 0; }
+  
+  /* Bottom Nav */
+  .bottom-nav { position: fixed; bottom: 0; width: 100%; background: var(--card); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 10px 0; padding-bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+  .nav-item { display: flex; flex-direction: column; align-items: center; color: var(--text-muted); text-decoration: none; font-size: 11px; font-weight: 600; gap: 4px; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+  .nav-item i { font-size: 20px; }
+  .nav-item.active { color: var(--primary); }
+  
+  /* Toast Alert */
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #334155; color: white; padding: 12px 20px; border-radius: 30px; font-size: 14px; font-weight: 500; z-index: 2000; transition: 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 8px; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  
+  /* Loading Overlay */
+  .loader-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); backdrop-filter: blur(4px); z-index: 1000; display: none; align-items: center; justify-content: center; flex-direction: column; color: var(--primary); font-weight: 600; }
+  .loader-overlay.active { display: flex; }
+  .spinner { width: 40px; height: 40px; border: 4px solid rgba(79,125,248,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title"><i class="fas fa-motorcycle"></i> DukaanGo Rider</div>
+  <div class="user-info">
+    <span id="riderName">Loading...</span>
+    <button class="logout-btn" onclick="logoutRider()"><i class="fas fa-sign-out-alt"></i></button>
+  </div>
+</div>
+
+<div class="container">
+  
+  <!-- AVAILABLE ORDERS SECTION -->
+  <div id="sec-available" class="section active">
+    <h2 style="margin-bottom:16px; font-size:18px;">Available for Pickup</h2>
+    <div id="availableList">
+      <!-- Injected -->
+    </div>
+  </div>
+
+  <!-- ACTIVE ORDER SECTION -->
+  <div id="sec-active" class="section">
+    <h2 style="margin-bottom:16px; font-size:18px;">Active Delivery</h2>
+    <div id="activeOrderContainer">
+      <!-- Injected -->
+    </div>
+  </div>
+
+  <!-- EARNINGS SECTION -->
+  <div id="sec-earnings" class="section">
+    <div class="earnings-hero">
+      <div style="font-size:14px; opacity:0.9;">Total Earnings</div>
+      <div class="amount" id="totalEarnings">₹0</div>
+      <div style="font-size:14px; opacity:0.9;"><span id="totalTrips">0</span> Deliveries Completed</div>
+    </div>
+    <h2 style="margin-bottom:16px; font-size:18px;">Recent Deliveries</h2>
+    <div id="pastOrdersList">
+      <!-- Injected -->
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom Navigation -->
+<div class="bottom-nav">
+  <div class="nav-item active" onclick="switchTab('available')" id="nav-available">
+    <i class="fas fa-list-ul"></i>
+    <span>Available</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('active')" id="nav-active">
+    <i class="fas fa-map-marked-alt"></i>
+    <span>Active</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('earnings')" id="nav-earnings">
+    <i class="fas fa-wallet"></i>
+    <span>Earnings</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="loader-overlay" id="loader">
+  <div class="spinner"></div>
+  <div>Processing...</div>
+</div>
+
+<!-- Hidden inputs for Camera Capture -->
+<input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoCapture(event)" />
+
+<script src="js/rider-app.js"></script>
+</body>
+</html>

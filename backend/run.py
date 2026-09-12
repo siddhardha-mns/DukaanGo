@@ -553,16 +553,13 @@ def customer_order():
                 (txn_id, now.strftime('%Y-%m-%d'), now.hour, subtotal, subtotal, f"Customer #{customer_id}")
             )
 
-            # Insert transaction items + deduct inventory
+            # Insert transaction items — do NOT deduct inventory here.
+            # Inventory is deducted only when the owner marks the order as 'delivered'.
             for item in items:
                 line_subtotal = item["qty"] * item["price"]
                 cursor.execute(
                     'INSERT INTO transaction_items (txn_id, item_name, qty, price, unit, subtotal) VALUES (?, ?, ?, ?, ?, ?)',
                     (txn_id, item["name"], item["qty"], item["price"], item.get("unit", "pcs"), line_subtotal)
-                )
-                cursor.execute(
-                    'UPDATE inventory SET qty = MAX(0, qty - ?) WHERE id = ?',
-                    (item["qty"], item["id"])
                 )
 
             # Insert into customer_orders
@@ -683,7 +680,9 @@ def get_all_orders():
 
 @app.route('/orders/<int:order_id>/status', methods=['PATCH'])
 def update_order_status(order_id):
-    """Owner/admin: advance an order to the next status."""
+    """Owner/admin: advance an order to the next status.
+    When transitioning to 'delivered', inventory is automatically deducted.
+    """
     try:
         data = request.json or {}
         new_status = (data.get('status') or '').strip().lower()
@@ -697,10 +696,66 @@ def update_order_status(order_id):
         if not row:
             conn.close()
             return jsonify({'ok': False, 'message': 'Order not found'}), 404
+
+        prev_status = row['status']
         cursor.execute('UPDATE customer_orders SET status = ? WHERE id = ?', (new_status, order_id))
+
+        # Deduct inventory only when transitioning TO 'delivered' (not already delivered)
+        inventory_updated = []
+        if new_status == 'delivered' and prev_status != 'delivered':
+            cursor.execute(
+                'SELECT item_name, qty FROM customer_order_items WHERE order_id = ?',
+                (order_id,)
+            )
+            order_items = cursor.fetchall()
+            for item_row in order_items:
+                cursor.execute(
+                    'UPDATE inventory SET qty = MAX(0, qty - ?), lastUpdated = CURRENT_TIMESTAMP WHERE name = ?',
+                    (item_row['qty'], item_row['item_name'])
+                )
+                inventory_updated.append({'name': item_row['item_name'], 'deducted': item_row['qty']})
+
         conn.commit()
         conn.close()
-        return jsonify({'ok': True, 'order_id': order_id, 'status': new_status})
+        return jsonify({
+            'ok': True,
+            'order_id': order_id,
+            'status': new_status,
+            'inventory_updated': inventory_updated
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+
+@app.route('/inventory/alerts', methods=['GET'])
+def inventory_alerts():
+    """Returns low-stock items (qty <= 10) and stale-zero items (qty=0, not restocked in 3 days)."""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+
+        # Low stock: qty between 1 and 10 inclusive
+        cursor.execute(
+            'SELECT id, name, qty, category FROM inventory WHERE qty > 0 AND qty <= 10 ORDER BY qty ASC'
+        )
+        low_stock = [
+            {'id': r['id'], 'name': r['name'], 'qty': r['qty'], 'category': r['category'] or 'General'}
+            for r in cursor.fetchall()
+        ]
+
+        # Stale zero: qty = 0 AND lastUpdated older than 3 days
+        cutoff = (datetime.datetime.utcnow() - datetime.timedelta(days=3)).strftime('%Y-%m-%d %H:%M:%S')
+        cursor.execute(
+            'SELECT id, name, lastUpdated FROM inventory WHERE qty = 0 AND lastUpdated < ? ORDER BY lastUpdated ASC',
+            (cutoff,)
+        )
+        stale_zero = [
+            {'id': r['id'], 'name': r['name'], 'lastUpdated': r['lastUpdated']}
+            for r in cursor.fetchall()
+        ]
+
+        conn.close()
+        return jsonify({'ok': True, 'low_stock': low_stock, 'stale_zero': stale_zero})
     except Exception as e:
         return jsonify({'ok': False, 'message': str(e)}), 500
 
@@ -773,6 +828,203 @@ def update_partner_status(partner_id):
         conn.commit()
         conn.close()
         return jsonify({'ok': True, 'id': partner_id, 'status': new_status})
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+
+# --- RIDER APIs ---
+
+def require_rider():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return None
+    token = auth_header.split(' ')[1]
+    if token.startswith('lc_rider_token_'):
+        try:
+            return int(token.split('_')[-1])
+        except:
+            return None
+    return None
+
+@app.route('/rider/login', methods=['POST'])
+def rider_login():
+    try:
+        data = request.json or {}
+        phone = (data.get('phone') or '').strip()
+        if not phone:
+            return jsonify({'ok': False, 'message': 'Phone number required'}), 400
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name FROM delivery_partners WHERE phone = ?", (phone,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            return jsonify({'ok': False, 'message': 'Rider not found with this phone number'}), 404
+            
+        token = f"lc_rider_token_{row['id']}"
+        return jsonify({'ok': True, 'token': token, 'rider': {'id': row['id'], 'name': row['name']}})
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+@app.route('/rider/orders', methods=['GET'])
+def rider_orders():
+    partner_id = require_rider()
+    if not partner_id:
+        return jsonify({'ok': False, 'message': 'Unauthorized'}), 401
+        
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Get unassigned orders (status='packed')
+        cursor.execute('''
+            SELECT co.id, co.status, co.total, co.delivery_address, c.name as customer_name, c.phone as customer_phone
+            FROM customer_orders co
+            LEFT JOIN customers c ON c.id = co.customer_id
+            WHERE co.status = 'packed' AND co.partner_id IS NULL
+            ORDER BY co.created_at ASC
+        ''')
+        available_orders = [dict(r) for r in cursor.fetchall()]
+        
+        # Get active assigned order (status='out_for_delivery' or 'packed' and assigned to this rider)
+        cursor.execute('''
+            SELECT co.id, co.status, co.total, co.delivery_address, c.name as customer_name, c.phone as customer_phone
+            FROM customer_orders co
+            LEFT JOIN customers c ON c.id = co.customer_id
+            WHERE co.partner_id = ? AND co.status IN ('packed', 'out_for_delivery')
+        ''', (partner_id,))
+        active_orders = [dict(r) for r in cursor.fetchall()]
+        
+        # Get past delivered orders
+        cursor.execute('''
+            SELECT co.id, co.status, co.total, co.delivery_address, co.delivery_fee, c.name as customer_name
+            FROM customer_orders co
+            LEFT JOIN customers c ON c.id = co.customer_id
+            WHERE co.partner_id = ? AND co.status = 'delivered'
+            ORDER BY co.created_at DESC LIMIT 50
+        ''', (partner_id,))
+        past_orders = [dict(r) for r in cursor.fetchall()]
+        
+        conn.close()
+        
+        return jsonify({
+            'ok': True, 
+            'available': available_orders,
+            'active': active_orders,
+            'past': past_orders
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+@app.route('/rider/orders/<int:order_id>/accept', methods=['POST'])
+def rider_accept_order(order_id):
+    partner_id = require_rider()
+    if not partner_id:
+        return jsonify({'ok': False, 'message': 'Unauthorized'}), 401
+        
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT status, partner_id FROM customer_orders WHERE id = ?', (order_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            conn.close()
+            return jsonify({'ok': False, 'message': 'Order not found'}), 404
+            
+        if row['partner_id'] is not None and row['partner_id'] != partner_id:
+            conn.close()
+            return jsonify({'ok': False, 'message': 'Order already assigned to another rider'}), 400
+            
+        cursor.execute('UPDATE customer_orders SET partner_id = ? WHERE id = ?', (partner_id, order_id))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'ok': True, 'message': 'Order accepted successfully'})
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+@app.route('/rider/orders/<int:order_id>/photo', methods=['POST'])
+def rider_upload_photo(order_id):
+    partner_id = require_rider()
+    if not partner_id:
+        return jsonify({'ok': False, 'message': 'Unauthorized'}), 401
+        
+    try:
+        data = request.json or {}
+        photo_type = data.get('type') # 'pickup' or 'dropoff'
+        photo_data = data.get('photo') # base64 string
+        
+        if photo_type not in ('pickup', 'dropoff'):
+            return jsonify({'ok': False, 'message': 'Invalid photo type'}), 400
+            
+        if not photo_data:
+            return jsonify({'ok': False, 'message': 'Photo data is required'}), 400
+            
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT status, partner_id FROM customer_orders WHERE id = ?', (order_id,))
+        row = cursor.fetchone()
+        
+        if not row or row['partner_id'] != partner_id:
+            conn.close()
+            return jsonify({'ok': False, 'message': 'Order not found or not assigned to you'}), 404
+            
+        prev_status = row['status']
+        new_status = 'out_for_delivery' if photo_type == 'pickup' else 'delivered'
+        
+        if photo_type == 'pickup':
+            cursor.execute('UPDATE customer_orders SET pickup_photo = ?, status = ? WHERE id = ?', (photo_data, new_status, order_id))
+        else:
+            cursor.execute('UPDATE customer_orders SET dropoff_photo = ?, status = ? WHERE id = ?', (photo_data, new_status, order_id))
+            
+        # If dropping off, deduct inventory (logic copied from admin update_order_status)
+        inventory_updated = []
+        if new_status == 'delivered' and prev_status != 'delivered':
+            cursor.execute('SELECT item_name, qty FROM customer_order_items WHERE order_id = ?', (order_id,))
+            order_items = cursor.fetchall()
+            for item_row in order_items:
+                cursor.execute(
+                    'UPDATE inventory SET qty = MAX(0, qty - ?), lastUpdated = CURRENT_TIMESTAMP WHERE name = ?',
+                    (item_row['qty'], item_row['item_name'])
+                )
+                inventory_updated.append({'name': item_row['item_name'], 'deducted': item_row['qty']})
+                
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'ok': True, 'message': f'{photo_type.title()} photo saved successfully', 'status': new_status, 'inventory_updated': inventory_updated})
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+@app.route('/rider/earnings', methods=['GET'])
+def rider_earnings():
+    partner_id = require_rider()
+    if not partner_id:
+        return jsonify({'ok': False, 'message': 'Unauthorized'}), 401
+        
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT COUNT(*) as trips, SUM(delivery_fee) as total_earnings
+            FROM customer_orders
+            WHERE partner_id = ? AND status = 'delivered'
+        ''', (partner_id,))
+        row = cursor.fetchone()
+        
+        conn.close()
+        
+        return jsonify({
+            'ok': True, 
+            'trips': row['trips'] or 0, 
+            'earnings': row['total_earnings'] or 0
+        })
     except Exception as e:
         return jsonify({'ok': False, 'message': str(e)}), 500
 

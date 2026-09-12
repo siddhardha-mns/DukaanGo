@@ -138,6 +138,18 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', default_items)
     
+    # Migrations for Rider Module
+    for col_def in [
+        "ADD COLUMN partner_id INTEGER REFERENCES delivery_partners(id)",
+        "ADD COLUMN pickup_photo TEXT",
+        "ADD COLUMN dropoff_photo TEXT",
+        "ADD COLUMN delivery_fee REAL DEFAULT 50.0"
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE customer_orders {col_def}")
+        except sqlite3.OperationalError:
+            pass # Column already exists
+    
     conn.commit()
     conn.close()
 
