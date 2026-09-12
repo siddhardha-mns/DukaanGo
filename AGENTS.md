@@ -53,17 +53,21 @@ DukaanGo (aka LocalCart / Smart Kirana): voice-powered kirana store management. 
 - Sarvam AI proxies (`/api/sarvam/asr|tts|chat`, `/api/analytics/chat`) need `SARVAM_API_KEY`; otherwise they return 501 and `/health` reports `"sarvam": false`. Voice billing still works client-side without it.
 - `/login` is a mock returning `lc_mock_token_12345`; role is set **client-side** only. Admin access is not enforced server-side.
 - Auth token keys: `lc_auth_token` and `lc_auth_user` in sessionStorage or localStorage. Each dashboard page defines its own `window.apiCall` helper wrapping the token.
+- Demo customer seeded on startup: `demo@customer.com` / `demo12345` (see `run.py` `__main__` block).
+- Sarvam env config: see `backend/.env.example` for available keys (`SARVAM_API_KEY`, `SARVAM_CHAT_MODEL`, `SARVAM_STT_MODEL`, etc.).
 
 ## Frontend structure
 
 - Entry points: `frontend/index.html` (landing with 3 portals) → `login.html` (role selector) → `owner.html` or `admin.html`. Customer goes directly to `customer/index.html`.
 - Dashboard sections are built in three places:
   - Sections 1–8: inline HTML in `owner.html` / `admin.html`
-  - Sections 9–15: injected by `frontend/js/sections2.js`
+  - Sections 9–15: injected by `frontend/js/sections2.js` (owner) or `frontend/js/admin-sections.js` (admin replaces 12–15 with admin-only variants)
   - Sections 16–21: injected by `frontend/js/voice-sections.js`
-  - Both injectors REQUIRE `#sections2Container` to exist in the HTML.
+  - All injectors REQUIRE `#sections2Container` to exist in the HTML.
 - To add a section you must update: `sectionTitles` in `js/app.js` (for nav/titles/switchSection), the sidebar + mobile drawer links in both `owner.html` and `admin.html`, and the section content.
-- Script load order in `owner.html`/`admin.html` matters: `data-engine.js` → `voice-engine.js` → `app.js` → `sections2.js` → `voice-sections.js` → `buttons.js` → `filters.js`. `voice-sections.js` references `DataEngine` in template literals at load time.
+- **Script load order in `owner.html`**: `lang-detect.js` → `data-engine.js` → `voice-engine.js` → `sections2.js` → `voice-sections.js` → `app.js` → `buttons.js` → `filters.js`.
+- **Script load order in `admin.html`**: `lang-detect.js` → `data-engine.js` → `admin-sections.js` → `app.js` → `buttons.js` → `filters.js`.
+- `app.js` loads **after** the section injectors — it references `DataEngine` and `sectionTitles` at init time. `voice-sections.js` references `DataEngine` in template literals at load time.
 
 ## Verification
 
@@ -73,3 +77,4 @@ DukaanGo (aka LocalCart / Smart Kirana): voice-powered kirana store management. 
 ## Voice / multilingual
 
 - STT/NLU/TTS lives in `frontend/js/voice-engine.js` (~1900 lines). Browser `SpeechRecognition` (Chrome/Edge only; EN/TE/HI). Item matching uses an alias map + Levenshtein + Telugu `nameTE` from inventory.
+- Offline language detection: `frontend/js/lang-detect.js` (Unicode script analysis for Indian languages, no external deps).
