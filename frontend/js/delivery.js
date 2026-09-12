@@ -32,6 +32,7 @@
   let _pollTimer = null;
   let _activeStatusFilter = 'all'; // for orders tab
   let _searchQuery = '';
+  let _knownOrderIds = null; // null = first load (don't fire notifications for existing orders)
 
   // ── Helpers ──────────────────────────────────────────────
   function apiBase() { return BACKEND; }
@@ -87,7 +88,26 @@
     try {
       const res = await apiFetch('/orders');
       if (res.ok && Array.isArray(res.data)) {
-        _orders = res.data;
+        const incoming = res.data;
+
+        // Detect new orders (skip on first load to avoid flooding)
+        if (_knownOrderIds !== null && typeof window.NotifEngine !== 'undefined') {
+          incoming.forEach(o => {
+            if (!_knownOrderIds.has(o.order_id)) {
+              const itemCount = Array.isArray(o.items) ? o.items.length : '?';
+              window.NotifEngine.addNotif(
+                'new_order',
+                `New Order #${o.order_id}`,
+                `${o.customer_name || 'Customer'} — ${itemCount} item${itemCount !== 1 ? 's' : ''} · ₹${Number(o.total || 0).toFixed(0)}`,
+                `new_order:${o.order_id}`
+              );
+            }
+          });
+        }
+
+        // Update known IDs
+        _knownOrderIds = new Set(incoming.map(o => o.order_id));
+        _orders = incoming;
         return true;
       }
     } catch (e) { console.warn('[DeliveryModule] fetchOrders failed', e); }
@@ -114,6 +134,28 @@
         if (o) o.status = newStatus;
         renderAll();
         toast(`Order #${orderId} → ${STATUS_CFG[newStatus]?.label || newStatus}`);
+
+        // Notify + re-check inventory when an order is delivered
+        if (newStatus === 'delivered' && typeof window.NotifEngine !== 'undefined') {
+          const updatedItems = res.inventory_updated || [];
+          const itemList = updatedItems.length
+            ? updatedItems.map(i => i.name).join(', ')
+            : 'inventory';
+          window.NotifEngine.addNotif(
+            'delivered',
+            `Order #${orderId} Delivered`,
+            `${itemList} updated automatically`,
+            `delivered:${orderId}`,
+            true // always show delivery confirmation
+          );
+          // Re-check inventory alerts after a short delay to catch newly low/zero items
+          setTimeout(() => window.NotifEngine.checkInventoryAlerts(), 2000);
+          // Also sync DataEngine so inventory table reflects new qtys
+          if (typeof DataEngine !== 'undefined') {
+            setTimeout(() => DataEngine.syncWithServer(), 1500);
+          }
+        }
+
         return true;
       }
       toast(res.message || 'Status update failed', 'error');

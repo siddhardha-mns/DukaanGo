@@ -242,16 +242,21 @@
 
         <div class="form-group">
           <label class="form-label">Login As</label>
-          <div class="flex gap-8">
-            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s" id="roleOwnerWrap">
+          <div class="flex gap-8" style="display:flex; gap:8px;">
+            <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 10px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s" id="roleOwnerWrap">
               <input type="radio" name="loginRole" value="owner" checked style="accent-color:var(--accent)" />
               <i class="fas fa-store" style="color:var(--accent);font-size:13px"></i>
-              <span style="font-size:13px;font-weight:600">Store Owner</span>
+              <span style="font-size:12px;font-weight:600">Owner</span>
             </label>
-            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s" id="roleAdminWrap">
+            <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 10px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s" id="roleAdminWrap">
               <input type="radio" name="loginRole" value="admin" style="accent-color:#f43f5e" />
               <i class="fas fa-shield-halved" style="color:#f43f5e;font-size:13px"></i>
-              <span style="font-size:13px;font-weight:600">Admin</span>
+              <span style="font-size:12px;font-weight:600">Admin</span>
+            </label>
+            <label style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 10px;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all 0.2s" id="roleRiderWrap">
+              <input type="radio" name="loginRole" value="rider" style="accent-color:#4f7df8" />
+              <i class="fas fa-motorcycle" style="color:#4f7df8;font-size:13px"></i>
+              <span style="font-size:12px;font-weight:600">Rider</span>
             </label>
           </div>
         </div>
@@ -261,7 +266,7 @@
           <div class="input-wrap">
             <i class="fas fa-user input-icon"></i>
             <input class="form-input" type="text" id="loginUsername" name="username"
-                   placeholder="Enter your username" autocomplete="username" required spellcheck="false" />
+                   placeholder="Username or Phone (for Rider)" autocomplete="username" required spellcheck="false" />
           </div>
         </div>
 
@@ -375,7 +380,9 @@
   if (sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY)) {
     try {
       const u = JSON.parse(sessionStorage.getItem(USER_KEY) || localStorage.getItem(USER_KEY) || '{}');
-      window.location.replace(u.role === 'Admin' ? 'admin.html' : 'owner.html');
+      if (u.role === 'Admin') window.location.replace('admin.html');
+      else if (u.role === 'Rider') window.location.replace('rider.html');
+      else window.location.replace('owner.html');
     } catch(_) { window.location.replace('owner.html'); }
   }
 
@@ -473,6 +480,7 @@
   const DEMO_CREDS = {
     owner: { username: 'owner', password: 'owner123' },
     admin: { username: 'admin', password: 'admin123' },
+    rider: { username: '9876543210', password: '(not required)' },
   };
 
   function fillDemo() {
@@ -492,6 +500,15 @@
       const creds = DEMO_CREDS[this.value] || DEMO_CREDS.owner;
       document.getElementById('demoUsername').textContent = creds.username;
       document.getElementById('demoPassword').textContent = creds.password;
+      
+      const pwField = document.getElementById('loginPassword');
+      if (this.value === 'rider') {
+        pwField.parentElement.parentElement.style.display = 'none';
+        pwField.removeAttribute('required');
+      } else {
+        pwField.parentElement.parentElement.style.display = 'block';
+        pwField.setAttribute('required', 'true');
+      }
     });
   });
 
@@ -530,13 +547,27 @@
     btn.querySelector('.btn-text').textContent = 'Signing in…';
 
     const selectedRole = document.querySelector('input[name="loginRole"]:checked')?.value || 'owner';
-    const destPage = selectedRole === 'admin' ? 'admin.html' : 'owner.html';
+    const destPage = selectedRole === 'admin' ? 'admin.html' : (selectedRole === 'rider' ? 'rider.html' : 'owner.html');
 
     try {
-      const { ok, body } = await apiPost('/login', { username, password, role: selectedRole });
+      let ok, body;
+      
+      if (selectedRole === 'rider') {
+        const res = await apiPost('/rider/login', { phone: username });
+        ok = res.ok;
+        body = res.body;
+        if (ok && body.ok) {
+          body.data = { token: body.token, user: { username: body.rider.name, role: 'Rider', id: body.rider.id } };
+        }
+      } else {
+        const res = await apiPost('/login', { username, password, role: selectedRole });
+        ok = res.ok;
+        body = res.body;
+      }
+      
       if (ok && body.ok) {
         const { token, user } = body.data;
-        user.role = user.role || (selectedRole === 'admin' ? 'Admin' : 'Store Owner');
+        user.role = user.role || (selectedRole === 'admin' ? 'Admin' : (selectedRole === 'rider' ? 'Rider' : 'Store Owner'));
         storeAuth(token, user, remember);
         if (remember) localStorage.setItem('lc_remembered_user', username);
         else localStorage.removeItem('lc_remembered_user');
@@ -550,7 +581,7 @@
       // Offline fallback — accept both sets of credentials
       const offlineCreds = DEMO_CREDS[selectedRole] || DEMO_CREDS.owner;
       if (username === offlineCreds.username && password === offlineCreds.password) {
-        const fallbackUser = { id:1, username: offlineCreds.username === 'admin' ? 'Admin' : 'Rajesh Kumar', role: selectedRole === 'admin' ? 'Admin' : 'Store Owner' };
+        const fallbackUser = { id:1, username: offlineCreds.username === 'admin' ? 'Admin' : (selectedRole === 'rider' ? 'Rider' : 'Rajesh Kumar'), role: selectedRole === 'admin' ? 'Admin' : (selectedRole === 'rider' ? 'Rider' : 'Store Owner') };
         storeAuth('offline-demo-token', fallbackUser, remember);
         showAlert('Backend offline — continuing in local mode.', 'success');
         setTimeout(() => window.location.replace(destPage), 900);
