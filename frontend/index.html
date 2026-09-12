@@ -1,335 +1,105 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
   <title>Dukaan Go — Your Neighbourhood Kirana, Now Digital</title>
-  <meta name="description" content="The smartest way to manage your local store, and the fastest way for customers to get their daily groceries delivered in under 20 minutes.">
+
+  <meta name="description" content="Manage your local kirana store and order daily groceries with Dukaan Go.">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --cream:       #f0f4d8;
-      --cream-dark:  #e4ebb8;
-      --green:       #2d6a2d;
-      --green-mid:   #3a8c3a;
-      --green-light: #4caf4c;
-      --green-btn:   #2d6a2d;
-      --green-pill:  #e8f5e8;
-      --text-dark:   #1a2e1a;
-      --text-body:   #3a4a3a;
-      --text-muted:  #6a7a6a;
-      --white:       #ffffff;
-      --orange:      #e85d26;
-      --shadow-sm:   0 2px 12px rgba(45,106,45,0.12);
-      --shadow-md:   0 8px 32px rgba(45,106,45,0.15);
-      --radius:      16px;
-      --radius-sm:   10px;
-      --font:        'Inter', -apple-system, sans-serif;
-    }
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    html, body {
-      font-family: var(--font);
-      background: var(--cream);
-      color: var(--text-dark);
-      min-height: 100vh;
-      -webkit-font-smoothing: antialiased;
-    }
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    /* ── Navbar ── */
-    .navbar {
-      position: sticky; top: 0; z-index: 100;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 48px; height: 64px;
-      background: var(--cream);
-      border-bottom: 1px solid rgba(45,106,45,0.12);
-    }
-    .nav-brand {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 17px; font-weight: 800; color: var(--text-dark); letter-spacing: -0.3px;
-      text-decoration: none;
-    }
-    .nav-logo {
-      width: 34px; height: 34px; border-radius: 9px;
-      background: var(--green); display: flex; align-items: center; justify-content: center;
-      color: #fff; font-size: 16px;
-    }
-    .nav-actions { display: flex; align-items: center; gap: 12px; }
-    .btn-signin {
-      padding: 10px 24px; background: var(--green-btn); color: #fff;
-      border: none; border-radius: 100px; font-size: 14px; font-weight: 600;
-      cursor: pointer; text-decoration: none; transition: background 0.2s, transform 0.15s;
-    }
-    .btn-signin:hover { background: var(--green-mid); transform: translateY(-1px); }
+  <link rel="stylesheet" href="css/landing.css">
 
-    /* ── Hero Section ── */
-    .hero {
-      display: flex; align-items: center;
-      padding: 60px 48px 40px;
-      max-width: 1200px; margin: 0 auto;
-      gap: 40px; min-height: calc(100vh - 64px - 200px);
-    }
-    .hero-left { flex: 1.1; }
-    .hero-right { flex: 1; display: flex; justify-content: center; align-items: center; }
-
-    .pill {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 6px 14px; background: var(--green-pill);
-      border: 1px solid rgba(45,106,45,0.2); border-radius: 100px;
-      font-size: 13px; font-weight: 600; color: var(--green); margin-bottom: 28px;
-    }
-    .pill-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: var(--green-light);
-      animation: pulse 2s ease-in-out infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.3)} }
-
-    .hero-title {
-      font-size: clamp(40px, 5vw, 62px);
-      font-weight: 900; line-height: 1.08; letter-spacing: -1.5px;
-      color: var(--text-dark); margin-bottom: 20px;
-    }
-    .hero-title .accent { color: var(--green-mid); }
-
-    .hero-sub {
-      font-size: 17px; color: var(--text-body); line-height: 1.65;
-      max-width: 460px; margin-bottom: 40px;
-    }
-
-    .hero-cta { display: flex; gap: 14px; flex-wrap: wrap; }
-    .btn-primary {
-      padding: 14px 32px; background: var(--green-btn); color: #fff;
-      border: none; border-radius: 100px; font-size: 15px; font-weight: 700;
-      cursor: pointer; text-decoration: none; transition: all 0.2s;
-      display: inline-flex; align-items: center; gap: 8px;
-    }
-    .btn-primary:hover { background: var(--green-mid); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(45,106,45,0.3); }
-    .btn-outline {
-      padding: 14px 28px; background: transparent; color: var(--green);
-      border: 2px solid var(--green); border-radius: 100px; font-size: 15px; font-weight: 700;
-      cursor: pointer; text-decoration: none; transition: all 0.2s;
-      display: inline-flex; align-items: center; gap: 8px;
-    }
-    .btn-outline:hover { background: var(--green); color: #fff; transform: translateY(-2px); }
-
-    /* Hero illustration placeholder — grocery basket SVG emoji style */
-    .hero-illustration {
-      width: 100%; max-width: 460px;
-      aspect-ratio: 1;
-      position: relative;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .hero-illustration .basket-bg {
-      width: 320px; height: 320px; border-radius: 50%;
-      background: radial-gradient(circle, rgba(45,106,45,0.08) 0%, transparent 70%);
-      position: absolute;
-    }
-    .hero-emoji-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 16px; position: relative; z-index: 1;
-    }
-    .emoji-card {
-      width: 90px; height: 90px; background: var(--white);
-      border-radius: 20px; display: flex; align-items: center; justify-content: center;
-      font-size: 36px; box-shadow: var(--shadow-sm);
-      transition: transform 0.3s;
-    }
-    .emoji-card:hover { transform: translateY(-4px) rotate(3deg); }
-    .emoji-card.accent-card { background: var(--green); }
-
-    /* ── How It Works ── */
-    .how-section {
-      background: var(--white);
-      padding: 64px 48px;
-      border-top: 1px solid rgba(45,106,45,0.1);
-    }
-    .how-inner { max-width: 1100px; margin: 0 auto; }
-    .how-section h2 {
-      font-size: 32px; font-weight: 800; color: var(--text-dark);
-      margin-bottom: 48px; letter-spacing: -0.5px;
-    }
-    .how-steps {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px;
-    }
-    .how-step { display: flex; gap: 20px; align-items: flex-start; }
-    .how-icon {
-      width: 64px; height: 64px; flex-shrink: 0; border-radius: 16px;
-      background: var(--green-pill); display: flex; align-items: center; justify-content: center;
-      font-size: 28px; border: 1px solid rgba(45,106,45,0.15);
-    }
-    .how-text h4 {
-      font-size: 13px; font-weight: 800; letter-spacing: 0.06em;
-      color: var(--text-dark); text-transform: uppercase; margin-bottom: 8px;
-    }
-    .how-text p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
-
-    /* ── Portal Cards ── */
-    .portals-section {
-      padding: 64px 48px;
-      max-width: 1100px; margin: 0 auto;
-    }
-    .portals-section h2 {
-      font-size: 28px; font-weight: 800; color: var(--text-dark);
-      margin-bottom: 32px; text-align: center;
-    }
-    .portals-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
-    }
-    .portal-card {
-      background: var(--white); border-radius: var(--radius);
-      padding: 32px 28px; border: 2px solid transparent;
-      box-shadow: var(--shadow-sm); text-decoration: none; color: var(--text-dark);
-      transition: all 0.25s; display: flex; flex-direction: column; gap: 16px;
-    }
-    .portal-card:hover {
-      border-color: var(--green); box-shadow: var(--shadow-md);
-      transform: translateY(-4px);
-    }
-    .portal-card-icon {
-      width: 56px; height: 56px; border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 24px; color: #fff;
-    }
-    .portal-card-icon.customer { background: linear-gradient(135deg, #3a8c3a, #2d6a2d); }
-    .portal-card-icon.owner    { background: linear-gradient(135deg, #e85d26, #c44a1a); }
-    .portal-card-icon.admin    { background: linear-gradient(135deg, #2d6a8c, #1a4a6a); }
-    .portal-card h3 { font-size: 18px; font-weight: 700; }
-    .portal-card p  { font-size: 14px; color: var(--text-muted); line-height: 1.5; flex: 1; }
-    .portal-card .portal-arrow {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 13px; font-weight: 700; color: var(--green);
-    }
-
-    /* ── Footer ── */
-    .footer {
-      text-align: center; padding: 24px;
-      font-size: 12px; color: var(--text-muted);
-      border-top: 1px solid rgba(45,106,45,0.1);
-    }
-
-    /* ── Responsive ── */
-    @media (max-width: 900px) {
-      .navbar { padding: 0 24px; }
-      .hero { flex-direction: column; padding: 40px 24px 32px; min-height: auto; gap: 32px; }
-      .hero-right { order: -1; }
-      .hero-illustration { max-width: 280px; }
-      .emoji-card { width: 72px; height: 72px; font-size: 28px; }
-      .how-section { padding: 48px 24px; }
-      .how-steps { grid-template-columns: 1fr; gap: 28px; }
-      .portals-section { padding: 48px 24px; }
-      .portals-grid { grid-template-columns: 1fr; }
-    }
-  </style>
 </head>
-<body>
 
-<!-- Navbar -->
-<nav class="navbar">
-  <a href="/" class="nav-brand">
-    <div class="nav-logo"><i class="fas fa-bolt"></i></div>
-    DUKAAN GO
-  </a>
-  <div class="nav-actions">
-    <a href="login.html" class="btn-signin">Sign In</a>
-  </div>
-</nav>
+<body class="landing-page">
 
-<!-- Hero -->
-<section class="hero">
-  <div class="hero-left">
-    <div class="pill">
-      <div class="pill-dot"></div>
-      Hyperlocal grocery delivery
-    </div>
-    <h1 class="hero-title">
-      Your<br>Neighbourhood<br>Kirana, <span class="accent">Now Digital.</span>
-    </h1>
-    <p class="hero-sub">The smartest way to manage your local store, and the fastest way for customers to get their daily groceries delivered in under 20 minutes.</p>
-    <div class="hero-cta">
-      <a href="customer/index.html" class="btn-primary"><i class="fas fa-bag-shopping"></i> Shop Now</a>
-      <a href="login.html" class="btn-outline"><i class="fas fa-store"></i> Manage Store</a>
-    </div>
-  </div>
+  <header class="landing-nav"><div class="landing-shell landing-nav__inner">
 
-  <div class="hero-right">
-    <div class="hero-illustration">
-      <div class="basket-bg"></div>
-      <div class="hero-emoji-grid">
-        <div class="emoji-card">🥛</div>
-        <div class="emoji-card">🛒</div>
-        <div class="emoji-card">🍅</div>
-        <div class="emoji-card">🌾</div>
-        <div class="emoji-card accent-card">🛵</div>
-        <div class="emoji-card">🧂</div>
-        <div class="emoji-card">🫙</div>
-        <div class="emoji-card">📍</div>
-        <div class="emoji-card">🥦</div>
+    <a href="index.html" class="landing-brand" aria-label="Dukaan Go home"><span class="landing-brand__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11L10 22l9.5-11.5H13V2Z"/></svg></span><span class="landing-brand__name">DUKAAN GO</span></a>
+
+    <button class="landing-signin" id="signInTrigger" type="button" aria-haspopup="dialog" aria-controls="signInDialog">Sign In</button>
+
+  </div></header>
+
+  <main>
+
+    <section class="landing-hero"><div class="landing-shell landing-hero__grid">
+
+      <div class="landing-hero__content">
+
+        <p class="landing-badge"><span class="landing-badge__dot" aria-hidden="true"></span>Hyperlocal grocery delivery</p>
+
+        <h1 class="landing-headline">Your<br>Neighbourhood<br>Kirana, <span class="accent">Now Digital.</span></h1>
+
+        <p class="landing-subtext">The smartest way to run your local store, and the fastest way for customers to get daily groceries delivered in under 20 minutes.</p>
+
+        <div class="landing-hero__actions"><button class="landing-primary-action" type="button" data-open-signin>Get started <span aria-hidden="true">→</span></button><a class="landing-secondary-action" href="#how-it-works">How it works</a></div>
+
+        <div class="landing-trust"><span class="landing-trust__avatars" aria-hidden="true"><i>R</i><i>S</i><i>A</i></span><span>Trusted by neighbourhood stores and families</span></div>
+
       </div>
-    </div>
-  </div>
-</section>
 
-<!-- How It Works -->
-<section class="how-section">
-  <div class="how-inner">
-    <h2>How It Works</h2>
-    <div class="how-steps">
-      <div class="how-step">
-        <div class="how-icon">📍</div>
-        <div class="how-text">
-          <h4>1. Pin Your Location</h4>
-          <p>Find your trusted local Kiranas nearby.</p>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="how-icon">🛒</div>
-        <div class="how-text">
-          <h4>2. Shop Your Essentials</h4>
-          <p>Choose from daily groceries, snacks, &amp; household needs.</p>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="how-icon">🛵</div>
-        <div class="how-text">
-          <h4>3. Get It in 5 Mins!</h4>
-          <p>Sit back while your nearby store delivers to your doorstep.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+      <div class="landing-scene" aria-label="Dukaan Go grocery delivery illustration">
 
-<!-- Portal Cards -->
-<section class="portals-section">
-  <h2>Choose Your Portal</h2>
-  <div class="portals-grid">
-    <a href="customer/index.html" class="portal-card">
-      <div class="portal-card-icon customer"><i class="fas fa-shopping-bag"></i></div>
-      <h3>I'm a Customer</h3>
-      <p>Order groceries online from your nearest Kirana. Fast delivery in under 20 minutes.</p>
-      <span class="portal-arrow">Shop Now <i class="fas fa-arrow-right"></i></span>
-    </a>
-    <a href="login.html" class="portal-card">
-      <div class="portal-card-icon owner"><i class="fas fa-store"></i></div>
-      <h3>Store Owner</h3>
-      <p>Manage inventory, billing, voice commands, analytics and customer orders.</p>
-      <span class="portal-arrow">Manage Store <i class="fas fa-arrow-right"></i></span>
-    </a>
-    <a href="login.html" onclick="sessionStorage.setItem('lc_login_role','admin')" class="portal-card">
-      <div class="portal-card-icon admin"><i class="fas fa-shield-halved"></i></div>
-      <h3>Admin Panel</h3>
-      <p>System-wide administration, user management and platform configuration.</p>
-      <span class="portal-arrow">Admin Access <i class="fas fa-arrow-right"></i></span>
-    </a>
-  </div>
-</section>
+        <div class="landing-scene__leaf leaf-one"></div><div class="landing-scene__leaf leaf-two"></div>
 
-<footer class="footer">
-  &copy; 2026 Dukaan Go — Powered by DukaanGo Voice Engine
-</footer>
+        <div class="landing-phone"><div class="landing-phone__speaker"></div><div class="landing-phone__screen"><div class="phone-top"><strong>Good morning, Priya</strong><span>☀</span></div><div class="phone-search">Search groceries <span>⌕</span></div><div class="phone-banner"><span>Fresh picks</span><b>20 min delivery</b></div><div class="phone-products"><span>🥬<b>Fresh<br>Veggies</b></span><span>🥛<b>Dairy<br>&amp; Eggs</b></span><span>🍞<b>Daily<br>Essentials</b></span></div><div class="phone-order"><span>🛍️</span><p><b>Your cart</b><small>4 items ready to go</small></p><strong>₹248</strong></div></div></div>
+
+        <div class="landing-shop"><div class="shop-awning"></div><span class="shop-board">DUKAAN<br><small>FRESH MART</small></span><div class="shop-window"><i>🍎</i><i>🥕</i><i>🥖</i></div><div class="shop-counter"></div></div>
+
+        <div class="landing-delivery"><div class="delivery-head"></div><div class="delivery-body"></div><div class="delivery-bag">🛍️</div><div class="delivery-wheel wheel-left"></div><div class="delivery-wheel wheel-right"></div><div class="delivery-cycle"></div></div>
+
+        <div class="scene-pill scene-pill--stock"><span>✓</span> Stock updated</div><div class="scene-pill scene-pill--order"><span>⚡</span> Order on the way</div>
+
+      </div>
+
+    </div></section>
+
+    <section class="landing-how" id="how-it-works"><div class="landing-shell">
+
+      <p class="section-kicker">ONE SIMPLE PLATFORM</p><h2 class="landing-how__title">Everything your local store needs.</h2>
+
+      <div class="landing-steps">
+
+        <article class="landing-step"><span class="feature-icon">⌁</span><div class="landing-step__body"><h3 class="landing-step__title">MANAGE WITH EASE</h3><p class="landing-step__desc">Keep inventory, prices and every sale in one simple, clear place.</p></div></article>
+
+        <article class="landing-step"><span class="feature-icon">◌</span><div class="landing-step__body"><h3 class="landing-step__title">ORDER IN MINUTES</h3><p class="landing-step__desc">Customers find daily essentials from a store they already know.</p></div></article>
+
+        <article class="landing-step"><span class="feature-icon">↗</span><div class="landing-step__body"><h3 class="landing-step__title">GROW LOCALLY</h3><p class="landing-step__desc">Build stronger neighbourhood relationships with faster, reliable service.</p></div></article>
+
+      </div>
+
+    </div></section>
+
+  </main>
+
+  <section class="signin-dialog" id="signInDialog" role="dialog" aria-modal="true" aria-labelledby="signInTitle" aria-hidden="true"><div class="signin-card">
+
+    <button class="signin-close" id="signInClose" type="button" aria-label="Close sign in options">×</button><div class="signin-card__mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11L10 22l9.5-11.5H13V2Z"/></svg></div>
+
+    <p class="signin-eyebrow">WELCOME BACK</p><h2 id="signInTitle">Where would you like to sign in?</h2><p class="signin-intro">Choose the space that is right for you.</p>
+
+    <div class="signin-options"><a class="signin-option" href="customer/index.html"><span class="signin-option__icon">🛍️</span><span><b>Customer</b><small>Shop groceries from your local store</small></span><em aria-hidden="true">→</em></a><a class="signin-option" href="login.html"><span class="signin-option__icon">▦</span><span><b>Owner or Admin</b><small>Manage your store and operations</small></span><em aria-hidden="true">→</em></a></div>
+
+  </div></section>
+
+  <script>
+
+    (() => { const dialog = document.getElementById('signInDialog'); const trigger = document.getElementById('signInTrigger'); const close = document.getElementById('signInClose'); const open = () => { dialog.classList.add('is-open'); dialog.setAttribute('aria-hidden', 'false'); close.focus(); }; const shut = () => { dialog.classList.remove('is-open'); dialog.setAttribute('aria-hidden', 'true'); trigger.focus(); }; trigger.addEventListener('click', open); document.querySelectorAll('[data-open-signin]').forEach(button => button.addEventListener('click', open)); close.addEventListener('click', shut); dialog.addEventListener('click', event => { if (event.target === dialog) shut(); }); document.addEventListener('keydown', event => { if (event.key === 'Escape' && dialog.classList.contains('is-open')) shut(); }); })();
+
+  </script>
 
 </body>
+
 </html>
